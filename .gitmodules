@@ -1,0 +1,6 @@
+[submodule "Codebase/Drivers/STM32L4xx_HAL_Driver"]
+	path = Codebase/Drivers/STM32L4xx_HAL_Driver
+	url = https://github.com/zhanwang-sky/STM32L4xx_HAL_Driver.git
+[submodule "Codebase/FreeRTOS"]
+	path = Codebase/FreeRTOS
+	url = https://github.com/zhanwang-sky/FreeRTOS.git
