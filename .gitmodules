@@ -4,3 +4,6 @@
 [submodule "Codebase/FreeRTOS"]
 	path = Codebase/FreeRTOS
 	url = https://github.com/zhanwang-sky/FreeRTOS.git
+[submodule "Codebase/Drivers/CMSIS"]
+	path = Codebase/Drivers/CMSIS
+	url = https://github.com/zhanwang-sky/CMSIS.git
