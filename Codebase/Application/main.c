@@ -19,10 +19,13 @@ int main(void) {
     BSP_MCU_Init();
 
     while (1) {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-        HAL_Delay(80);
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-        HAL_Delay(920);
+        for (int i = 0; i < 2; i++) {
+            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+            HAL_Delay(50);
+            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+            HAL_Delay(50);
+        }
+        HAL_Delay(800);
     }
 }
 

@@ -39,7 +39,7 @@
 #include "stm32l4xx_hal.h"
 
 /* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim6;
+extern TIM_HandleTypeDef htim7;
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -142,13 +142,13 @@ void SysTick_Handler(void) {
 /*  file (startup_stm32l4xxxx.s).                                             */
 /******************************************************************************/
 /**
-  * @brief  This function handles TIM6 global interrupt,
+  * @brief  This function handles TIM7 global interrupt,
   *         DAC channel1 and channel2 underrun error interrupts.
   * @param  None
   * @retval None
   */
-void TIM6_DAC_IRQHandler(void) {
-    HAL_TIM_IRQHandler(&htim6);
+void TIM7_IRQHandler(void) {
+    HAL_TIM_IRQHandler(&htim7);
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
