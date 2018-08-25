@@ -1,5 +1,5 @@
 # ignore all auto-generated files.
-Projects/*/**
+Projects/*/*/**
 # except project files.
 !Projects/**/*.uvoptx
 !Projects/**/*.uvprojx
