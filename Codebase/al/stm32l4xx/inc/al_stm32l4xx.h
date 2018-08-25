@@ -1,19 +1,21 @@
 /**
   ******************************************************************************
-  * @file   nucleo_l432kc_bsp.h
+  * @file   al_stm32l4xx.h
   * @author Ji Chen
-  * @brief  NUCLEO-L432KC BSP header file.
+  * @brief  Adaptation Layer header file.
   ******************************************************************************
   * @attention
   ******************************************************************************
   */
 
-#ifndef __NUCLEO_L432KC_BSP_H
-#define __NUCLEO_L432KC_BSP_H
+#ifndef __AL_STM32L4XX_H
+#define __AL_STM32L4XX_H
 
 /* Function prototypes -------------------------------------------------------*/
-void BSP_MCU_Init(void);
+int al_gpio_write_pin(int fd, int state);
+int al_gpio_read_pin(int fd, int *pState);
+int al_gpio_toggle_pin(int fd);
 
-#endif /* __NUCLEO_L432KC_BSP_H */
+#endif /* __AL_STM32L4XX_H */
 
 /******************************** END OF FILE *********************************/

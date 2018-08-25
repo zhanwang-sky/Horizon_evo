@@ -337,7 +337,7 @@
               <MiscControls></MiscControls>
               <Define>STM32L432xx,USE_HAL_DRIVER,HORIZON_MINI_L4</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\Codebase\BSP\NUCLEO-L432KC\Inc;..\..\..\Codebase\Drivers\CMSIS\Include;..\..\..\Codebase\Drivers\CMSIS\Device\ST\STM32L4xx\Include;..\..\..\Codebase\Drivers\STM32L4xx_HAL_Driver\Inc</IncludePath>
+              <IncludePath>..\..\..\Codebase\FreeRTOS\Source\include;..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F;..\..\..\Codebase\al\stm32l4xx\inc;..\..\..\Codebase\BSP\NUCLEO-L432KC\Inc;..\..\..\Codebase\Drivers\CMSIS\Include;..\..\..\Codebase\Drivers\CMSIS\Device\ST\STM32L4xx\Include;..\..\..\Codebase\Drivers\STM32L4xx_HAL_Driver\Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -385,6 +385,51 @@
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\Application\main.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>AL</GroupName>
+          <Files>
+            <File>
+              <FileName>al_stm32l4xx_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_util.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>FreeRTOS</GroupName>
+          <Files>
+            <File>
+              <FileName>list.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\list.c</FilePath>
+            </File>
+            <File>
+              <FileName>queue.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\queue.c</FilePath>
+            </File>
+            <File>
+              <FileName>tasks.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\tasks.c</FilePath>
+            </File>
+            <File>
+              <FileName>timers.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\timers.c</FilePath>
+            </File>
+            <File>
+              <FileName>port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F\port.c</FilePath>
+            </File>
+            <File>
+              <FileName>heap_1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\portable\MemMang\heap_1.c</FilePath>
             </File>
           </Files>
         </Group>
