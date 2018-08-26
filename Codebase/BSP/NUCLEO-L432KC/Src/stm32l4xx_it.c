@@ -39,6 +39,9 @@
 #include "stm32l4xx_hal.h"
 
 /* External variables --------------------------------------------------------*/
+extern DMA_HandleTypeDef hdma_usart2_rx;
+extern DMA_HandleTypeDef hdma_usart2_tx;
+extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim7;
 
 /* Private typedef -----------------------------------------------------------*/
@@ -142,8 +145,34 @@ void SysTick_Handler(void) {
 /*  file (startup_stm32l4xxxx.s).                                             */
 /******************************************************************************/
 /**
-  * @brief  This function handles TIM7 global interrupt,
-  *         DAC channel1 and channel2 underrun error interrupts.
+  * @brief  This function handles DMA1 channel6 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel6_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_usart2_rx);
+}
+
+/**
+  * @brief  This function handles DMA1 channel7 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel7_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_usart2_tx);
+}
+
+/**
+  * @brief  This function handles USART2 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void USART2_IRQHandler(void) {
+    HAL_UART_IRQHandler(&huart2);
+}
+
+/**
+  * @brief  This function handles TIM7 global interrupt.
   * @param  None
   * @retval None
   */

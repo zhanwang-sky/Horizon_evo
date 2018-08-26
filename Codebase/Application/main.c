@@ -9,7 +9,10 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <string.h>
+
 #ifdef HORIZON_MINI_L4
+#include "stm32l4xx_hal.h"
 #include "nucleo_l432kc_bsp.h"
 #include "al_stm32l4xx.h"
 #else
@@ -20,12 +23,24 @@
 #include "task.h"
 #include "timers.h"
 
+extern UART_HandleTypeDef huart2;
+
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blink;
 
 /* Functions -----------------------------------------------------------------*/
 void blinkLED(TimerHandle_t xTimer) {
+    static uint32_t count = 0;
+    char uartTxBuf[128] = { '\0' };
+
+    if (0 == count) {
+        snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c");
+        HAL_UART_Transmit(&huart2, (uint8_t *) uartTxBuf, strlen(uartTxBuf), 100);
+    }
+    count++;
     al_gpio_toggle_pin(0);
+    snprintf(uartTxBuf, sizeof(uartTxBuf), "%4u: hello world!\r\n", count);
+    HAL_UART_Transmit_DMA(&huart2, (uint8_t *) uartTxBuf, strlen(uartTxBuf));
 }
 
 int main(void) {
@@ -36,7 +51,7 @@ int main(void) {
 
     /* Create a FreeRTOS timer */
     xTimer_blink = xTimerCreate("blinkLED",
-                                pdMS_TO_TICKS(5000),
+                                pdMS_TO_TICKS(1000),
                                 pdTRUE,
                                 NULL,
                                 blinkLED);

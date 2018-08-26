@@ -38,6 +38,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
 
+/* Global variables ----------------------------------------------------------*/
+DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
+
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -70,6 +74,68 @@ void HAL_MspInit(void) {
     HAL_NVIC_SetPriority(PendSV_IRQn, 0, 0);
     /* SysTick_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(SysTick_IRQn, SYSTICK_INT_PRIORITY, 0);
+}
+
+void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle) {
+    GPIO_InitTypeDef GPIO_InitStruct;
+
+    if(USART2 == uartHandle->Instance) {
+        /* USART2 clock enable */
+        __HAL_RCC_USART2_CLK_ENABLE();
+
+        /* USART2 GPIO Configuration
+           PA2 -> USART2_TX
+           PA15 (JTDI) -> USART2_RX
+        */
+        GPIO_InitStruct.Pin = GPIO_PIN_2;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+        GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+        GPIO_InitStruct.Pin = GPIO_PIN_15;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+        GPIO_InitStruct.Alternate = GPIO_AF3_USART2;
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+        /* USART2 DMA Init */
+        /* USART2_RX Init */
+        hdma_usart2_rx.Instance = DMA1_Channel6;
+        hdma_usart2_rx.Init.Request = DMA_REQUEST_2;
+        hdma_usart2_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+        hdma_usart2_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+        hdma_usart2_rx.Init.MemInc = DMA_MINC_ENABLE;
+        hdma_usart2_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_usart2_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+        hdma_usart2_rx.Init.Mode = DMA_NORMAL;
+        hdma_usart2_rx.Init.Priority = DMA_PRIORITY_LOW;
+        if (HAL_DMA_Init(&hdma_usart2_rx) != HAL_OK) {
+            while(1);
+        }
+        __HAL_LINKDMA(uartHandle, hdmarx, hdma_usart2_rx);
+
+        /* USART2_TX Init */
+        hdma_usart2_tx.Instance = DMA1_Channel7;
+        hdma_usart2_tx.Init.Request = DMA_REQUEST_2;
+        hdma_usart2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+        hdma_usart2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+        hdma_usart2_tx.Init.MemInc = DMA_MINC_ENABLE;
+        hdma_usart2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_usart2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+        hdma_usart2_tx.Init.Mode = DMA_NORMAL;
+        hdma_usart2_tx.Init.Priority = DMA_PRIORITY_LOW;
+        if (HAL_DMA_Init(&hdma_usart2_tx) != HAL_OK) {
+            while(1);
+        }
+        __HAL_LINKDMA(uartHandle, hdmatx, hdma_usart2_tx);
+
+        /* USART2 interrupt Init */
+        HAL_NVIC_SetPriority(USART2_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
+        HAL_NVIC_EnableIRQ(USART2_IRQn);
+    }
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
