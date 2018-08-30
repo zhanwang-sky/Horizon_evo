@@ -9,8 +9,6 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx_hal.h"
-
 #ifdef HORIZON_MINI_L4
 #include "nucleo_l432kc_bsp_config.h"
 #else
@@ -25,51 +23,46 @@ extern void xPortSysTickHandler( void );
 
 /* Functions -----------------------------------------------------------------*/
 int al_gpio_write_pin(int fd, int state) {
-    GPIO_TypeDef *pPort;
+    GPIO_TypeDef *port;
     uint16_t pin;
 
-    if (fd >= BSP_NR_GPIOs) {
+    if (fd < 0 || fd >= BSP_NR_GPIOs) {
         return -1;
     }
 
-    BSP_GPIO_AL2HAL(fd, pPort, pin);
+    BSP_GPIO_FD2PORTPIN(fd, port, pin);
 
-    HAL_GPIO_WritePin(pPort, pin, (0 == state) ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    HAL_GPIO_WritePin(port, pin, (0 == state) ? GPIO_PIN_RESET : GPIO_PIN_SET);
 
     return 0;
 }
 
 int al_gpio_read_pin(int fd, int *pState) {
-    GPIO_TypeDef *pPort;
+    GPIO_TypeDef *port;
     uint16_t pin;
 
-    if (fd >= BSP_NR_GPIOs) {
+    if (fd < 0 || fd >= BSP_NR_GPIOs || NULL == pState) {
         return -1;
     }
 
+    BSP_GPIO_FD2PORTPIN(fd, port, pin);
 
-    if (NULL == pState) {
-        return -1;
-    }
-
-    BSP_GPIO_AL2HAL(fd, pPort, pin);
-
-    *pState = HAL_GPIO_ReadPin(pPort, pin);
+    *pState = HAL_GPIO_ReadPin(port, pin);
 
     return 0;
 }
 
 int al_gpio_toggle_pin(int fd) {
-    GPIO_TypeDef *pPort;
+    GPIO_TypeDef *port;
     uint16_t pin;
 
-    if (fd >= BSP_NR_GPIOs) {
+    if (fd < 0 || fd >= BSP_NR_GPIOs) {
         return -1;
     }
 
-    BSP_GPIO_AL2HAL(fd, pPort, pin);
+    BSP_GPIO_FD2PORTPIN(fd, port, pin);
 
-    HAL_GPIO_TogglePin(pPort, pin);
+    HAL_GPIO_TogglePin(port, pin);
 
     return 0;
 }
@@ -78,9 +71,9 @@ int al_gpio_toggle_pin(int fd) {
 inline void os_assert_failed(void) {
     HAL_Assert_Failed();
 }
-#endif /* end of configASSERT */
+#endif /* configASSERT */
 
-/* Interrupt service routines ------------------------------------------------*/
+/* ISR callbacks -------------------------------------------------------------*/
 /**
   * @brief  SYSTICK callback.
   * @param  None

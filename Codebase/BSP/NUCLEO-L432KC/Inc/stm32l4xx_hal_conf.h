@@ -190,7 +190,7 @@
   */
 #define  VDD_VALUE                    3300U /*!< Value of VDD in mv */
 #define  TICK_INT_PRIORITY            4U /*!< tick interrupt priority */
-#define  SYSTICK_INT_PRIORITY         0x0FU /* system tick interrupt priority */
+#define  SYSTICK_INT_PRIORITY         0xFU /* system tick interrupt priority */
 #define  USE_RTOS                     0U
 #define  PREFETCH_ENABLE              0U
 #define  INSTRUCTION_CACHE_ENABLE     1U
