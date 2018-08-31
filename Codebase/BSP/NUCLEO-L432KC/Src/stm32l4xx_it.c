@@ -41,6 +41,9 @@
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
+extern DMA_HandleTypeDef hdma_i2c1_rx;
+extern DMA_HandleTypeDef hdma_i2c1_tx;
+extern I2C_HandleTypeDef hi2c1;
 extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim7;
 
@@ -160,6 +163,42 @@ void DMA1_Channel6_IRQHandler(void) {
   */
 void DMA1_Channel7_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_usart2_tx);
+}
+
+/**
+  * @brief  This function handles DMA2 channel6 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA2_Channel6_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_i2c1_rx);
+}
+
+/**
+  * @brief  This function handles DMA2 channel7 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA2_Channel7_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_i2c1_tx);
+}
+
+/**
+  * @brief  This function handles I2C1 event interrupt.
+  * @param  None
+  * @retval None
+  */
+void I2C1_EV_IRQHandler(void) {
+    HAL_I2C_EV_IRQHandler(&hi2c1);
+}
+
+/**
+  * @brief  This function handles I2C1 error interrupt.
+  * @param  None
+  * @retval None
+  */
+void I2C1_ER_IRQHandler(void) {
+    HAL_I2C_ER_IRQHandler(&hi2c1);
 }
 
 /**

@@ -17,6 +17,7 @@
 
 /* Global variables ----------------------------------------------------------*/
 UART_HandleTypeDef huart2;
+I2C_HandleTypeDef hi2c1;
 
 /* Functions -----------------------------------------------------------------*/
 /**
@@ -69,7 +70,7 @@ static void SystemClock_Config(void) {
         while(1);
     }
 
-    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2;
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2 | RCC_PERIPHCLK_I2C1;
     PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_HSI;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
         while(1);
@@ -116,6 +117,7 @@ static void BSP_GPIO_Init(void) {
 void BSP_DMA_Init(void) {
     /* DMA controller clock enable */
     __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
 
     /* DMA interrupt init */
     /* DMA1_Channel6_IRQn interrupt configuration */
@@ -124,6 +126,12 @@ void BSP_DMA_Init(void) {
     /* DMA1_Channel7_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
+    /* DMA2_Channel6_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
+    /* DMA2_Channel7_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 }
 
 void BSP_USART2_UART_Init(void) {
@@ -138,6 +146,31 @@ void BSP_USART2_UART_Init(void) {
     huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
     huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
     if (HAL_UART_Init(&huart2) != HAL_OK) {
+        while(1);
+    }
+}
+
+void BSP_I2C1_Init(void) {
+    hi2c1.Instance = I2C1;
+    hi2c1.Init.Timing = 0x0010061A;
+    hi2c1.Init.OwnAddress1 = 0;
+    hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    hi2c1.Init.OwnAddress2 = 0;
+    hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+    if (HAL_I2C_Init(&hi2c1) != HAL_OK) {
+        while(1);
+    }
+
+    /* Configure Analogue filter */
+    if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK) {
+        while(1);
+    }
+
+    /*Configure Digital filter */
+    if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK) {
         while(1);
     }
 }
@@ -161,6 +194,7 @@ void BSP_MCU_Init(void) {
     BSP_GPIO_Init();
     BSP_DMA_Init();
     BSP_USART2_UART_Init();
+    BSP_I2C1_Init();
 
     return;
 }
