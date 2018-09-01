@@ -50,7 +50,7 @@ int al_uart_write(int fd, const void *buf, unsigned int nbytes) {
 
     xSemaphoreTake(xSem_uartTx[index], portMAX_DELAY);
 
-    if (HAL_UART_Transmit_DMA(huart, (uint8_t *) buf, nbytes) != HAL_OK) {
+    if (HAL_UART_Transmit_DMA(huart, (uint8_t *) buf, (uint16_t) nbytes) != HAL_OK) {
         rc = -1;
         goto EXIT;
     }

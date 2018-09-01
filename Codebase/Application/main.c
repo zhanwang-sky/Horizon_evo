@@ -38,6 +38,7 @@ void blinkLED(TimerHandle_t xTimer) {
 void printHello(void *pvParameters) {
     uint32_t count = 0;
     TickType_t xLastWakeTime;
+    uint8_t data = 0;
 
     snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c");
     al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
@@ -49,7 +50,10 @@ void printHello(void *pvParameters) {
         // wake up medium level task
         xSemaphoreGive(xSem_medium);
         al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2500));
+        al_i2c_read(0, 0xD0, 0x75, &data, 1);
+        snprintf(uartTxBuf, sizeof(uartTxBuf), "---whoami? -0x%x\r\n\n", data);
+        al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2000));
     }
 }
 
@@ -81,6 +85,7 @@ int main(void) {
 
     /* Adaptation Layer Initialization */
     al_uart_init();
+    al_i2c_init();
 
     al_gpio_write_pin(0, 1);
 

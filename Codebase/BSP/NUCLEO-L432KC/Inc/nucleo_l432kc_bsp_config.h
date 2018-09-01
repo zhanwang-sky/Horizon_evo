@@ -17,7 +17,7 @@
 /* Definitions ---------------------------------------------------------------*/
 #define BSP_NR_GPIOs (1)
 #define BSP_NR_EXINTs (0)
-#define BSP_NR_I2Cs (0)
+#define BSP_NR_I2Cs (1)
 #define BSP_NR_UARTs (1)
 
 /* Macros --------------------------------------------------------------------*/
@@ -38,8 +38,20 @@ do { \
     (INDEX) = 0; \
 } while (0)
 
+#define BSP_I2C_FD2IDXHDL(FD, INDEX, HI2C) \
+do { \
+    (INDEX) = 0; \
+    (HI2C) = &hi2c1; \
+} while (0)
+
+#define BSP_I2C_HDL2IDX(HI2C, INDEX) \
+do { \
+    (INDEX) = 0; \
+} while(0)
+
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart2;
+extern I2C_HandleTypeDef hi2c1;
 
 #endif /* __NUCLEO_L432KC_BSP_CONFIG_H */
 
