@@ -16,6 +16,8 @@
 #error please specify a target board
 #endif
 
+#include "inv_mpu.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
@@ -26,8 +28,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blink;
-SemaphoreHandle_t xSem_medium;
-SemaphoreHandle_t xSem_high;
 char uartTxBuf[128] = { '\0' };
 
 /* Functions -----------------------------------------------------------------*/
@@ -47,35 +47,11 @@ void printHello(void *pvParameters) {
     while (1) {
         count += 1;
         snprintf(uartTxBuf, sizeof(uartTxBuf), "%4u: hello world! (DMA)\r\n", count);
-        // wake up medium level task
-        xSemaphoreGive(xSem_medium);
         al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
         al_i2c_read(0, 0xD0, 0x75, &data, 1);
         snprintf(uartTxBuf, sizeof(uartTxBuf), "---whoami? -0x%x\r\n\n", data);
         al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2000));
-    }
-}
-
-void mediumLevelTask(void *pvParameters) {
-    static char mediumBuf[] = "@@@medium level task@@@\r\n";
-
-    while (1) {
-        xSemaphoreTake(xSem_medium, portMAX_DELAY);
-        // wakeup high level task
-        xSemaphoreGive(xSem_high);
-        vTaskDelay(pdMS_TO_TICKS(1));
-        al_uart_write(0, mediumBuf, strlen(mediumBuf));
-    }
-}
-
-void highLevelTask(void *pvParameters) {
-    static char highBuf[] = "!!!high level task!!!\r\n";
-
-    while (1) {
-        xSemaphoreTake(xSem_high, portMAX_DELAY);
-        vTaskDelay(pdMS_TO_TICKS(3));
-        al_uart_write(0, highBuf, strlen(highBuf));
     }
 }
 
@@ -88,10 +64,6 @@ int main(void) {
     al_i2c_init();
 
     al_gpio_write_pin(0, 1);
-
-    /* Initialize semaphores */
-    xSem_medium = xSemaphoreCreateBinary();
-    xSem_high = xSemaphoreCreateBinary();
 
     /* Create a FreeRTOS timer */
     xTimer_blink = xTimerCreate("blinkLED",
@@ -107,20 +79,6 @@ int main(void) {
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2U,
-                NULL);
-
-    xTaskCreate(mediumLevelTask,
-                "mediumLevelTask",
-                configMINIMAL_STACK_SIZE,
-                NULL,
-                tskIDLE_PRIORITY + 3U,
-                NULL);
-
-    xTaskCreate(highLevelTask,
-                "highLevelTask",
-                configMINIMAL_STACK_SIZE,
-                NULL,
-                tskIDLE_PRIORITY + 4U,
                 NULL);
 
     /* Start the scheduler. */
