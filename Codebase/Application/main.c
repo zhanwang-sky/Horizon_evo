@@ -9,6 +9,14 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
+#include <string.h>
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "timers.h"
+#include "semphr.h"
+
 #ifdef HORIZON_MINI_L4
 #include "nucleo_l432kc_bsp.h"
 #include "al_stm32l4xx.h"
@@ -17,14 +25,6 @@
 #endif
 
 #include "inv_mpu.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-#include "semphr.h"
-
-#include <stdio.h>
-#include <string.h>
 
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blink;
