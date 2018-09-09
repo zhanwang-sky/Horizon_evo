@@ -67,6 +67,10 @@ int al_gpio_toggle_pin(int fd) {
     return 0;
 }
 
+__weak void al_exti_0(void) {
+    return;
+}
+
 #ifdef configASSERT
 inline void os_assert_failed(void) {
     HAL_Assert_Failed();
@@ -82,6 +86,17 @@ inline void os_assert_failed(void) {
 void HAL_SYSTICK_Callback(void) {
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         xPortSysTickHandler();
+    }
+}
+
+/**
+  * @brief  EXTI line detection callback.
+  * @param  GPIO_Pin: Specifies the port pin connected to corresponding EXTI line.
+  * @retval None
+  */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if (GPIO_PIN_1 == GPIO_Pin) {
+        al_exti_0();
     }
 }
 

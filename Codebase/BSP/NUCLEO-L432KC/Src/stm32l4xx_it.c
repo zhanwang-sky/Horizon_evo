@@ -148,6 +148,15 @@ void SysTick_Handler(void) {
 /*  file (startup_stm32l4xxxx.s).                                             */
 /******************************************************************************/
 /**
+  * @brief  This function handles EXTI line1 interrupt.
+  * @param  None
+  * @retval None
+  */
+void EXTI1_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+}
+
+/**
   * @brief  This function handles DMA1 channel6 global interrupt.
   * @param  None
   * @retval None

@@ -16,7 +16,7 @@
 
 /* Definitions ---------------------------------------------------------------*/
 #define BSP_NR_GPIOs (1)
-#define BSP_NR_EXINTs (0)
+#define BSP_NR_EXTIs (1)
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_UARTs (1)
 

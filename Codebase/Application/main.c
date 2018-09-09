@@ -27,31 +27,40 @@
 #include "inv_mpu.h"
 
 /* Private variables ---------------------------------------------------------*/
+SemaphoreHandle_t xSem_mpu;
 TimerHandle_t xTimer_blink;
 char uartTxBuf[128] = { '\0' };
 
 /* Functions -----------------------------------------------------------------*/
-void blinkLED(TimerHandle_t xTimer) {
+void init_mpu(void) {
+    mpu_reset();
+    mpu_set_gyro_fsr(2000);
+    mpu_set_accel_fsr(8);
+    mpu_set_lpf(92);
+    mpu_set_sample_rate(200);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    mpu_set_int(1);
+
+    return;
+}
+
+void tBlinkLED(TimerHandle_t xTimer) {
     al_gpio_toggle_pin(0);
 }
 
-void printHello(void *pvParameters) {
+void tPrintHello(void *pvParameters) {
     uint32_t count = 0;
-    TickType_t xLastWakeTime;
-    uint8_t data = 0;
+
+    init_mpu();
 
     snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c");
     al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
 
-    xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        count += 1;
-        snprintf(uartTxBuf, sizeof(uartTxBuf), "%4u: hello world! (DMA)\r\n", count);
+        xSemaphoreTake(xSem_mpu, portMAX_DELAY);
+        count++;
+        snprintf(uartTxBuf, sizeof(uartTxBuf), "%4u: Hello world!\r\n", count);
         al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
-        al_i2c_read(0, 0xD0, 0x75, &data, 1);
-        snprintf(uartTxBuf, sizeof(uartTxBuf), "---whoami? -0x%x\r\n\n", data);
-        al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2000));
     }
 }
 
@@ -65,17 +74,20 @@ int main(void) {
 
     al_gpio_write_pin(0, 1);
 
+    /* Initialize semaphores */
+    xSem_mpu = xSemaphoreCreateBinary();
+
     /* Create a FreeRTOS timer */
-    xTimer_blink = xTimerCreate("blinkLED",
+    xTimer_blink = xTimerCreate("tBlinkLED",
                                 pdMS_TO_TICKS(1000),
                                 pdTRUE,
                                 NULL,
-                                blinkLED);
+                                tBlinkLED);
     xTimerStart(xTimer_blink, 0);
 
     /* Create tasks */
-    xTaskCreate(printHello,
-                "printHello",
+    xTaskCreate(tPrintHello,
+                "tPrintHello",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2U,
@@ -91,6 +103,21 @@ int main(void) {
        See the memory management section on the FreeRTOS web site for more
        details. */
     while(1);
+}
+
+/* ISR callbacks -------------------------------------------------------------*/
+void al_exti_0(void) {
+    static uint32_t count = 0;
+
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        count += 1;
+        if (count >= 200) {
+            count = 0;
+            xSemaphoreGiveFromISR(xSem_mpu, NULL);
+        }
+    }
+
+    return;
 }
 
 /******************************** END OF FILE *********************************/
