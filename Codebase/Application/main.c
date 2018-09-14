@@ -28,13 +28,17 @@
 
 /* Private variables ---------------------------------------------------------*/
 SemaphoreHandle_t xSem_mpu;
+SemaphoreHandle_t xSem_msgReady;
+SemaphoreHandle_t xSem_msgCplt;
 TimerHandle_t xTimer_blink;
+uint8_t mpu_rawData[14];
+float mpu_data[6];
 char uartTxBuf[128] = { '\0' };
 
 /* Functions -----------------------------------------------------------------*/
 void init_mpu(void) {
     mpu_reset();
-    mpu_set_gyro_fsr(2000);
+    mpu_set_gyro_fsr(1000);
     mpu_set_accel_fsr(8);
     mpu_set_lpf(92);
     mpu_set_sample_rate(200);
@@ -48,19 +52,39 @@ void tBlinkLED(TimerHandle_t xTimer) {
     al_gpio_toggle_pin(0);
 }
 
-void tPrintHello(void *pvParameters) {
-    uint32_t count = 0;
+void tLog(void *pvParameters) {
+    TickType_t xLastWakeTime;
+
+    xLastWakeTime = xTaskGetTickCount();
+
+    while (1) {
+        xSemaphoreGive(xSem_msgCplt);
+        xSemaphoreTake(xSem_msgReady, portMAX_DELAY);
+        al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(200));
+    }
+}
+
+void tAHRS(void *pvParameters) {
+    int n;
 
     init_mpu();
 
-    snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c");
-    al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
-
     while (1) {
         xSemaphoreTake(xSem_mpu, portMAX_DELAY);
-        count++;
-        snprintf(uartTxBuf, sizeof(uartTxBuf), "%4u: Hello world!\r\n", count);
-        al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
+        mpu_read_data(mpu_rawData, mpu_data);
+        if (xSemaphoreTake(xSem_msgCplt, 0)) {
+            mpu_data[0] -= 0.13f;
+            mpu_data[1] -= 0.38f;
+            mpu_data[2] -= 0.5f;
+            n = snprintf(uartTxBuf, sizeof(uartTxBuf),
+                         "\033cgyro: %f, %f, %f\r\n",
+                         mpu_data[0], mpu_data[1], mpu_data[2]);
+            n += snprintf(uartTxBuf + n, sizeof(uartTxBuf) - n,
+                          "accel: %f, %f, %f\r\n",
+                          mpu_data[3], mpu_data[4], mpu_data[5]);
+            xSemaphoreGive(xSem_msgReady);
+        }
     }
 }
 
@@ -76,6 +100,8 @@ int main(void) {
 
     /* Initialize semaphores */
     xSem_mpu = xSemaphoreCreateBinary();
+    xSem_msgReady = xSemaphoreCreateBinary();
+    xSem_msgCplt = xSemaphoreCreateBinary();
 
     /* Create a FreeRTOS timer */
     xTimer_blink = xTimerCreate("tBlinkLED",
@@ -86,8 +112,16 @@ int main(void) {
     xTimerStart(xTimer_blink, 0);
 
     /* Create tasks */
-    xTaskCreate(tPrintHello,
-                "tPrintHello",
+    xTaskCreate(tLog,
+                "tLog",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                tskIDLE_PRIORITY + 1U,
+                NULL);
+
+    /* Create tasks */
+    xTaskCreate(tAHRS,
+                "tAHRS",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2U,
@@ -107,14 +141,8 @@ int main(void) {
 
 /* ISR callbacks -------------------------------------------------------------*/
 void al_exti_0(void) {
-    static uint32_t count = 0;
-
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        count += 1;
-        if (count >= 200) {
-            count = 0;
-            xSemaphoreGiveFromISR(xSem_mpu, NULL);
-        }
+        xSemaphoreGiveFromISR(xSem_mpu, NULL);
     }
 
     return;
