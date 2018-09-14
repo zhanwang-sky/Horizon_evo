@@ -165,8 +165,8 @@
 #define INV_MPU_LPF_5HZ               (6)
 
 /* Private variables ---------------------------------------------------------*/
-static float inv_mpu_gyroSens = 0.00762939453125f;
-static float inv_mpu_accelSens = 0.00006103515625f;
+static float inv_mpu_gyroScale = 0.00762939453125f;
+static float inv_mpu_accelScale = 0.00006103515625f;
 
 /* Functions -----------------------------------------------------------------*/
 int mpu_read_data(uint8_t rawData[14], float data[6]) {
@@ -178,11 +178,11 @@ int mpu_read_data(uint8_t rawData[14], float data[6]) {
 
     for (int i = 0; i < 3; i++) {
         data[i] = (float) ((int16_t) (rawData[2 * (i + 4)] << 8 | rawData[(2 * (i + 4)) + 1]))
-                  * inv_mpu_gyroSens;
+                  * inv_mpu_gyroScale;
     }
     for (int i = 3; i < 6; i++) {
         data[i] = (float) ((int16_t) (rawData[2 * (i - 3)] << 8 | rawData[(2 * (i - 3)) + 1]))
-                  * inv_mpu_accelSens;
+                  * inv_mpu_accelScale;
     }
 
     return 0;
@@ -282,19 +282,19 @@ int mpu_set_accel_fsr(int fsr) {
     switch (fsr) {
     case 2:
         cfg_bits = INV_MPU_ACCEL_FSR_2G << 3;
-        inv_mpu_accelSens = 0.00006103515625f;
+        inv_mpu_accelScale = 0.00006103515625f;
         break;
     case 4:
         cfg_bits = INV_MPU_ACCEL_FSR_4G << 3;
-        inv_mpu_accelSens = 0.0001220703125f;
+        inv_mpu_accelScale = 0.0001220703125f;
         break;
     case 8:
         cfg_bits = INV_MPU_ACCEL_FSR_8G << 3;
-        inv_mpu_accelSens = 0.000244140625f;
+        inv_mpu_accelScale = 0.000244140625f;
         break;
     case 16:
         cfg_bits = INV_MPU_ACCEL_FSR_16G << 3;
-        inv_mpu_accelSens = 0.00048828125f;
+        inv_mpu_accelScale = 0.00048828125f;
         break;
     default:
         return -1;
@@ -320,19 +320,19 @@ int mpu_set_gyro_fsr(int fsr) {
     switch (fsr) {
     case 250:
         cfg_bits = INV_MPU_GYRO_FSR_250DPS << 3;
-        inv_mpu_gyroSens = 0.00762939453125f;
+        inv_mpu_gyroScale = 0.00762939453125f;
         break;
     case 500:
         cfg_bits = INV_MPU_GYRO_FSR_500DPS << 3;
-        inv_mpu_gyroSens = 0.0152587890625f;
+        inv_mpu_gyroScale = 0.0152587890625f;
         break;
     case 1000:
         cfg_bits = INV_MPU_GYRO_FSR_1000DPS << 3;
-        inv_mpu_gyroSens = 0.030517578125f;
+        inv_mpu_gyroScale = 0.030517578125f;
         break;
     case 2000:
         cfg_bits = INV_MPU_GYRO_FSR_2000DPS << 3;
-        inv_mpu_gyroSens = 0.06103515625f;
+        inv_mpu_gyroScale = 0.06103515625f;
         break;
     default:
         return -1;
