@@ -26,6 +26,8 @@
 
 #include "inv_mpu.h"
 
+#include "MadgwickAHRS.h"
+
 /* Private variables ---------------------------------------------------------*/
 SemaphoreHandle_t xSem_mpu;
 SemaphoreHandle_t xSem_msgReady;
@@ -33,12 +35,13 @@ SemaphoreHandle_t xSem_msgCplt;
 TimerHandle_t xTimer_blink;
 uint8_t mpu_rawData[14];
 float mpu_data[6];
-char uartTxBuf[128] = { '\0' };
+float roll, pitch, yaw;
+uint8_t uartTxBuf[32] = { 0x88, 0xAF, 0x1C, };
 
 /* Functions -----------------------------------------------------------------*/
 void init_mpu(void) {
     mpu_reset();
-    mpu_set_gyro_fsr(1000);
+    mpu_set_gyro_fsr(2000);
     mpu_set_accel_fsr(8);
     mpu_set_lpf(92);
     mpu_set_sample_rate(200);
@@ -52,37 +55,58 @@ void tBlinkLED(TimerHandle_t xTimer) {
     al_gpio_toggle_pin(0);
 }
 
-void tLog(void *pvParameters) {
-    TickType_t xLastWakeTime;
+void tComm(void *pvParameters) {
+    //TickType_t xLastWakeTime;
 
-    xLastWakeTime = xTaskGetTickCount();
+    //xLastWakeTime = xTaskGetTickCount();
 
     while (1) {
         xSemaphoreGive(xSem_msgCplt);
         xSemaphoreTake(xSem_msgReady, portMAX_DELAY);
-        al_uart_write(0, uartTxBuf, strlen(uartTxBuf));
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(200));
+        al_uart_write(0, uartTxBuf, sizeof(uartTxBuf));
+        //vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(200));
     }
 }
 
 void tAHRS(void *pvParameters) {
-    int n;
+    int i;
+    int16_t tmp;
+    uint8_t sum;
 
     init_mpu();
 
     while (1) {
         xSemaphoreTake(xSem_mpu, portMAX_DELAY);
         mpu_read_data(mpu_rawData, mpu_data);
+
+        /* calibration */
+        mpu_data[0] -= 0.2489f;
+        mpu_data[1] -= 0.4412f;
+        mpu_data[2] -= 0.5037f;
+        /* updata IMU */
+        madgwick_updateIMU(mpu_data[0], mpu_data[1], mpu_data[2],
+                           mpu_data[3], mpu_data[4], mpu_data[5]);
+
+        /* send message */
         if (xSemaphoreTake(xSem_msgCplt, 0)) {
-            mpu_data[0] -= 0.13f;
-            mpu_data[1] -= 0.38f;
-            mpu_data[2] -= 0.5f;
-            n = snprintf(uartTxBuf, sizeof(uartTxBuf),
-                         "\033cgyro: %f, %f, %f\r\n",
-                         mpu_data[0], mpu_data[1], mpu_data[2]);
-            n += snprintf(uartTxBuf + n, sizeof(uartTxBuf) - n,
-                          "accel: %f, %f, %f\r\n",
-                          mpu_data[3], mpu_data[4], mpu_data[5]);
+            memcpy(uartTxBuf + 3, mpu_rawData, 6);
+            memcpy(uartTxBuf + 9, mpu_rawData + 8, 6);
+            madgwick_computeAngles(&roll, &pitch, &yaw);
+            tmp = roll * 100.f;
+            uartTxBuf[21] = tmp >> 8;
+            uartTxBuf[22] = tmp & 0xFF;
+            tmp = pitch * 100.f;
+            uartTxBuf[23] = tmp >> 8;
+            uartTxBuf[24] = tmp & 0xFF;
+            tmp = yaw * 10.f;
+            uartTxBuf[25] = tmp >> 8;
+            uartTxBuf[26] = tmp & 0xFF;
+
+            for (sum = 0, i = 0; i < 31; i++) {
+                sum += uartTxBuf[i];
+            }
+            uartTxBuf[31] = sum;
+
             xSemaphoreGive(xSem_msgReady);
         }
     }
@@ -112,8 +136,8 @@ int main(void) {
     xTimerStart(xTimer_blink, 0);
 
     /* Create tasks */
-    xTaskCreate(tLog,
-                "tLog",
+    xTaskCreate(tComm,
+                "tComm",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 1U,

@@ -391,6 +391,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\Application\inv\inv_mpu.c</FilePath>
             </File>
+            <File>
+              <FileName>MadgwickAHRS.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\Application\MadgwickAHRS.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
