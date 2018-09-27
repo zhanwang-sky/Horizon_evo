@@ -23,15 +23,15 @@ I2C_HandleTypeDef hi2c1;
 /**
   * @brief  System Clock Configuration
   *         The system Clock is configured as follows:
-  *          + System Clock source = PLL (HSI)
+  *          + System Clock source = PLL (HSE)
   *          + SYSCLK(Hz)          = 80000000
   *          + HCLK(Hz)            = 80000000
   *          + AHB Prescaler       = 1
   *          + APB1 Prescaler      = 1
   *          + APB2 Prescaler      = 1
-  *          + HSI Frequency(Hz)   = 16000000
+  *          + HSE Frequency(Hz)   = 8000000
   *          + PLL_M               = 1
-  *          + PLL_N               = 10
+  *          + PLL_N               = 20
   *          + PLL_P               = 7
   *          + PLL_Q               = 2
   *          + PLL_R               = 2
@@ -45,13 +45,12 @@ static void SystemClock_Config(void) {
     RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
     /* Initializes the CPU, AHB and APB busses clocks */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-    RCC_OscInitStruct.HSICalibrationValue = 16;
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
     RCC_OscInitStruct.PLL.PLLM = 1;
-    RCC_OscInitStruct.PLL.PLLN = 10;
+    RCC_OscInitStruct.PLL.PLLN = 20;
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
     RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
     RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -71,7 +70,7 @@ static void SystemClock_Config(void) {
     }
 
     PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2 | RCC_PERIPHCLK_I2C1;
-    PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_HSI;
+    PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
         while(1);
     }
@@ -161,7 +160,7 @@ void BSP_USART2_UART_Init(void) {
 
 void BSP_I2C1_Init(void) {
     hi2c1.Instance = I2C1;
-    hi2c1.Init.Timing = 0x0010061A;
+    hi2c1.Init.Timing = 0x00702991;
     hi2c1.Init.OwnAddress1 = 0;
     hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
     hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
