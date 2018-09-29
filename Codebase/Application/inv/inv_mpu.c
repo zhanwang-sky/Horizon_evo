@@ -20,10 +20,8 @@
 #error please specify a target board
 #endif
 
-#include "main.h"
-
 /* Private define ------------------------------------------------------------*/
-
+#define INV_MPU_I2C                   (0)
 /* MPU device address */
 #define INV_MPU_DEV_ADDR              (0xD0)
 
@@ -174,7 +172,7 @@ int mpu_read_data(uint8_t rawData[14], float data[6]) {
         return -1;
     }
 
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_XOUT_H, rawData, 14);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_XOUT_H, rawData, 14);
 
     for (int i = 0; i < 3; i++) {
         data[i] = (float) ((int16_t) (rawData[2 * (i + 4)] << 8 | rawData[(2 * (i + 4)) + 1]))
@@ -191,8 +189,8 @@ int mpu_read_data(uint8_t rawData[14], float data[6]) {
 int mpu_set_int(int enable) {
     uint8_t data[2];
 
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_PIN_CFG, &data[0], 1);
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_ENABLE, &data[1], 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_PIN_CFG, &data[0], 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_ENABLE, &data[1], 1);
     if (enable != 0) {
         data[0] |= INV_MPU_BIT_INT_ANYRD_2CLEAR;
         data[1] |= INV_MPU_BIT_RAW_RDY_EN;
@@ -200,8 +198,8 @@ int mpu_set_int(int enable) {
         data[0] &= ~INV_MPU_BIT_INT_ANYRD_2CLEAR;
         data[1] &= ~INV_MPU_BIT_RAW_RDY_EN;
     }
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_PIN_CFG, &data[0], 1);
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_ENABLE, &data[1], 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_PIN_CFG, &data[0], 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_INT_ENABLE, &data[1], 1);
 
     return 0;
 }
@@ -222,7 +220,7 @@ int mpu_set_sample_rate(int rate) {
 
     data = 1000 / rate - 1;
 
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_SMPLRT_DIV, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_SMPLRT_DIV, &data, 1);
 
     return 0;
 }
@@ -252,20 +250,20 @@ int mpu_set_lpf(int lpf) {
     }
 
     /* GYRO */
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_CONFIG, &data, 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_CONFIG, &data, 1);
     data &= ~INV_MPU_MASK_DLPF_CFG;
     data |= cfg_bits;
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_CONFIG, &data, 1);
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_CONFIG, &data, 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
     data &= ~INV_MPU_MASK_Fchoice_b;
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
 
     /* ACCEL */
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG2, &data, 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG2, &data, 1);
     data &= ~INV_MPU_MASK_A_DLPFCFG;
     data &= ~INV_MPU_BIT_accel_fchoice_b;
     data |= cfg_bits;
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG2, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG2, &data, 1);
 
     return 0;
 }
@@ -300,10 +298,10 @@ int mpu_set_accel_fsr(int fsr) {
         return -1;
     }
 
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG, &data, 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG, &data, 1);
     data &= ~INV_MPU_MASK_ACCEL_FS_SEL;
     data |= cfg_bits;
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_ACCEL_CONFIG, &data, 1);
 
     return 0;
 }
@@ -338,10 +336,10 @@ int mpu_set_gyro_fsr(int fsr) {
         return -1;
     }
 
-    al_i2c_read(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
+    al_i2c_read(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
     data &= ~INV_MPU_MASK_GYRO_FS_SEL;
     data |= cfg_bits;
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_GYRO_CONFIG, &data, 1);
 
     return 0;
 }
@@ -355,7 +353,7 @@ int mpu_reset(void) {
     uint8_t data;
 
     data = INV_MPU_BIT_H_RESET;
-    al_i2c_write(INV_MPU_I2C_FD, INV_MPU_DEV_ADDR, INV_MPU_REG_PWR_MGMT_1, &data, 1);
+    al_i2c_write(INV_MPU_I2C, INV_MPU_DEV_ADDR, INV_MPU_REG_PWR_MGMT_1, &data, 1);
     vTaskDelay(pdMS_TO_TICKS(50));
 
     return 0;

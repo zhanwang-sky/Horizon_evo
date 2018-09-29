@@ -193,7 +193,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\Codebase\Application\main.c</PathWithFileName>
+      <PathWithFileName>..\..\..\Codebase\Application\mini_l4\main.c</PathWithFileName>
       <FilenameWithoutPath>main.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
@@ -217,7 +217,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\Codebase\Application\MadgwickAHRS.c</PathWithFileName>
+      <PathWithFileName>..\..\..\Codebase\Application\imu\MadgwickAHRS.c</PathWithFileName>
       <FilenameWithoutPath>MadgwickAHRS.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
