@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "stm32l4xx_hal.h"
 #include "nucleo_l476rg_bsp.h"
 
@@ -19,21 +22,44 @@
 extern UART_HandleTypeDef huart2;
 extern I2C_HandleTypeDef hi2c1;
 char TxBuf[80] = { '\0' };
+uint32_t n = 0;
+uint8_t data[2];
+int len;
+
+extern void xPortSysTickHandler( void );
 
 /* Functions -----------------------------------------------------------------*/
-int main(void) {
-    uint32_t n = 0;
-    uint8_t data[2];
-    int len;
+void tPrintHello(void *pvParameters) {
+    TickType_t xLastWakeTime;
 
+    xLastWakeTime = xTaskGetTickCount();
+    while (1) {
+        len = snprintf(TxBuf, sizeof(TxBuf), "n: %04u, PWR: %02x, WHOAMI: %02x\r\n", n++, data[0], data[1]);
+        HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
+    }
+}
+
+int main(void) {
     BSP_MCU_Init();
 
-    len = snprintf(TxBuf, sizeof(TxBuf), "\033c");
+    len = snprintf(TxBuf, sizeof(TxBuf), "\033cFreeRTOS\r\n");
     HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
     HAL_I2C_Mem_Read_DMA(&hi2c1, 0xD0, 0x6B, I2C_MEMADD_SIZE_8BIT, data, 1);
     HAL_Delay(10);
     HAL_I2C_Mem_Read_DMA(&hi2c1, 0xD0, 0x75, I2C_MEMADD_SIZE_8BIT, data + 1, 1);
     HAL_Delay(90);
+
+    /* Create tasks */
+    xTaskCreate(tPrintHello,
+                "tPrintHello",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                tskIDLE_PRIORITY + 1U,
+                NULL);
+
+    /* Start the scheduler. */
+    vTaskStartScheduler();
 
     /* If all is well, the scheduler will now be running, and the following line
        will never be reached.
@@ -41,14 +67,27 @@ int main(void) {
        heap memory available for the idle and/or timer tasks to be created.
        See the memory management section on the FreeRTOS web site for more
        details. */
-    while(1) {
-        len = snprintf(TxBuf, sizeof(TxBuf), "n: %04u, PWR: %02x, WHOAMI: %02x\r\n", n++, data[0], data[1]);
-        HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
-        HAL_Delay(1000);
+    while(1);
+}
+
+#ifdef configASSERT
+inline void os_assert_failed(void) {
+    HAL_Assert_Failed();
+}
+#endif /* configASSERT */
+
+/* ISR callbacks -------------------------------------------------------------*/
+/**
+  * @brief  SYSTICK callback.
+  * @param  None
+  * @retval None
+  */
+void HAL_SYSTICK_Callback(void) {
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        xPortSysTickHandler();
     }
 }
 
-/* ISR callbacks -------------------------------------------------------------*/
 /**
   * @brief  EXTI line detection callback.
   * @param  GPIO_Pin: Specifies the port pin connected to corresponding EXTI line.

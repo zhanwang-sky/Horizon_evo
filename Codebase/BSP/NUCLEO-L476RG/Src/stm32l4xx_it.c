@@ -110,9 +110,9 @@ void UsageFault_Handler(void) {
   * @param  None
   * @retval None
   */
-void SVC_Handler(void) {
+/*void SVC_Handler(void) {
     return;
-}
+}*/
 
 /**
   * @brief  This function handles Debug Monitor exception.
@@ -128,9 +128,9 @@ void DebugMon_Handler(void) {
   * @param  None
   * @retval None
   */
-void PendSV_Handler(void) {
+/*void PendSV_Handler(void) {
     return;
-}
+}*/
 
 /**
   * @brief  This function handles SysTick Handler.
@@ -208,6 +208,15 @@ void DMA2_Channel6_IRQHandler(void) {
   */
 void DMA2_Channel7_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_i2c1_tx);
+}
+
+/**
+  * @brief  This function handles EXTI line[9:5] interrupts.
+  * @param  None
+  * @retval None
+  */
+void EXTI9_5_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9);
 }
 
 /**
