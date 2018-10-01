@@ -44,11 +44,20 @@ int main(void) {
     while(1) {
         len = snprintf(TxBuf, sizeof(TxBuf), "n: %04u, PWR: %02x, WHOAMI: %02x\r\n", n++, data[0], data[1]);
         HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
-        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
         HAL_Delay(1000);
     }
 }
 
 /* ISR callbacks -------------------------------------------------------------*/
+/**
+  * @brief  EXTI line detection callback.
+  * @param  GPIO_Pin: Specifies the port pin connected to corresponding EXTI line.
+  * @retval None
+  */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if (GPIO_PIN_13 == GPIO_Pin) {
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+    }
+}
 
 /******************************** END OF FILE *********************************/
