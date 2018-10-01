@@ -42,7 +42,7 @@ int main(void) {
        See the memory management section on the FreeRTOS web site for more
        details. */
     while(1) {
-        len = snprintf(TxBuf, sizeof(TxBuf), "%04u: %02x, %02x\r\n", n++, data[0], data[1]);
+        len = snprintf(TxBuf, sizeof(TxBuf), "n: %04u, PWR: %02x, WHOAMI: %02x\r\n", n++, data[0], data[1]);
         HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
         HAL_Delay(1000);
