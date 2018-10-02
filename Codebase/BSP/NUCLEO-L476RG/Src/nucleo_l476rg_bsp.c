@@ -119,7 +119,7 @@ void BSP_GPIO_Init(void) {
     /* Configure GPIO pin: PC9(MPU_INT) */
     GPIO_InitStruct.Pin = GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
     /* Configure GPIO pin: PC13(B1 [Blue PushButton]) */
     GPIO_InitStruct.Pin = GPIO_PIN_13;

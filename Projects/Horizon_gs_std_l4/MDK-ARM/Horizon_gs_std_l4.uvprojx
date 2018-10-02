@@ -335,9 +335,9 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define>USE_HAL_DRIVER,STM32L476xx</Define>
+              <Define>USE_HAL_DRIVER,STM32L476xx,HORIZON_GS_STD_L4</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\Codebase\FreeRTOS\Source\include;..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F;..\..\..\Codebase\BSP\NUCLEO-L476RG\Inc;..\..\..\Codebase\Drivers\CMSIS\Include;..\..\..\Codebase\Drivers\CMSIS\Device\ST\STM32L4xx\Include;..\..\..\Codebase\Drivers\STM32L4xx_HAL_Driver\Inc</IncludePath>
+              <IncludePath>..\..\..\Codebase\al\stm32l4xx\inc;..\..\..\Codebase\FreeRTOS\Source\include;..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F;..\..\..\Codebase\BSP\NUCLEO-L476RG\Inc;..\..\..\Codebase\Drivers\CMSIS\Include;..\..\..\Codebase\Drivers\CMSIS\Device\ST\STM32L4xx\Include;..\..\..\Codebase\Drivers\STM32L4xx_HAL_Driver\Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -390,6 +390,23 @@
         </Group>
         <Group>
           <GroupName>AL</GroupName>
+          <Files>
+            <File>
+              <FileName>al_stm32l4xx_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>al_stm32l4xx_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>al_stm32l4xx_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_util.c</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>FreeRTOS</GroupName>

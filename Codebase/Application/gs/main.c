@@ -14,28 +14,43 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
+#include "semphr.h"
 
-#include "stm32l4xx_hal.h"
+#if defined(HORIZON_MINI_L4)
+#include "nucleo_l432kc_bsp.h"
+#include "al_stm32l4xx.h"
+#elif defined(HORIZON_STD_L4) || defined(HORIZON_GS_STD_L4)
 #include "nucleo_l476rg_bsp.h"
+#include "al_stm32l4xx.h"
+#else
+#error please specify a target board
+#endif
 
 /* Private variables ---------------------------------------------------------*/
-extern UART_HandleTypeDef huart2;
-extern I2C_HandleTypeDef hi2c1;
+TimerHandle_t xTimer_blinkLED;
 char TxBuf[80] = { '\0' };
-uint32_t n = 0;
-uint8_t data[2];
-int len;
-
-extern void xPortSysTickHandler( void );
 
 /* Functions -----------------------------------------------------------------*/
+void tBlinkLED(TimerHandle_t xTimer) {
+    al_gpio_toggle_pin(0);
+}
+
 void tPrintHello(void *pvParameters) {
+    uint32_t n = 0;
+    uint8_t data[2];
+    int len;
     TickType_t xLastWakeTime;
+
+    len = snprintf(TxBuf, sizeof(TxBuf), "\033cFreeRTOS\r\n");
+    al_uart_write(0, (uint8_t *) TxBuf, len);
+    al_i2c_read(0, 0xD0, 0x6B, data, 1);
+    al_i2c_read(0, 0xD0, 0x75, data + 1, 1);
 
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
         len = snprintf(TxBuf, sizeof(TxBuf), "n: %04u, PWR: %02x, WHOAMI: %02x\r\n", n++, data[0], data[1]);
-        HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
+        al_uart_write(0, TxBuf, len);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
     }
 }
@@ -43,19 +58,24 @@ void tPrintHello(void *pvParameters) {
 int main(void) {
     BSP_MCU_Init();
 
-    len = snprintf(TxBuf, sizeof(TxBuf), "\033cFreeRTOS\r\n");
-    HAL_UART_Transmit_DMA(&huart2, (uint8_t *) TxBuf, len);
-    HAL_I2C_Mem_Read_DMA(&hi2c1, 0xD0, 0x6B, I2C_MEMADD_SIZE_8BIT, data, 1);
-    HAL_Delay(10);
-    HAL_I2C_Mem_Read_DMA(&hi2c1, 0xD0, 0x75, I2C_MEMADD_SIZE_8BIT, data + 1, 1);
-    HAL_Delay(90);
+    al_uart_init();
+    al_i2c_init();
+
+    /* Create software timers */
+    xTimer_blinkLED = xTimerCreate("tBlinkLED",
+                                   pdMS_TO_TICKS(1000),
+                                   pdTRUE,
+                                   NULL,
+                                   tBlinkLED);
+    /* Activate timers */
+    xTimerStart(xTimer_blinkLED, 0);
 
     /* Create tasks */
     xTaskCreate(tPrintHello,
                 "tPrintHello",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                tskIDLE_PRIORITY + 1U,
+                tskIDLE_PRIORITY + 2U,
                 NULL);
 
     /* Start the scheduler. */
@@ -70,33 +90,12 @@ int main(void) {
     while(1);
 }
 
-#ifdef configASSERT
-inline void os_assert_failed(void) {
-    HAL_Assert_Failed();
-}
-#endif /* configASSERT */
-
 /* ISR callbacks -------------------------------------------------------------*/
-/**
-  * @brief  SYSTICK callback.
-  * @param  None
-  * @retval None
-  */
-void HAL_SYSTICK_Callback(void) {
-    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        xPortSysTickHandler();
-    }
-}
+void al_exti_2(void) {
+    static uint16_t period = 1000;
 
-/**
-  * @brief  EXTI line detection callback.
-  * @param  GPIO_Pin: Specifies the port pin connected to corresponding EXTI line.
-  * @retval None
-  */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    if (GPIO_PIN_13 == GPIO_Pin) {
-        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-    }
+    period = (period == 1000) ? 100 : 1000;
+    xTimerChangePeriodFromISR(xTimer_blinkLED, pdMS_TO_TICKS(period), NULL);
 }
 
 /******************************** END OF FILE *********************************/

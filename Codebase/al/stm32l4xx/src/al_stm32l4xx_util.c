@@ -9,8 +9,10 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#ifdef HORIZON_MINI_L4
+#if defined(HORIZON_MINI_L4)
 #include "nucleo_l432kc_bsp_config.h"
+#elif defined(HORIZON_STD_L4) || defined(HORIZON_GS_STD_L4)
+#include "nucleo_l476rg_bsp_config.h"
 #else
 #error please specify a target board
 #endif
@@ -71,6 +73,14 @@ __weak void al_exti_0(void) {
     return;
 }
 
+__weak void al_exti_1(void) {
+    return;
+}
+
+__weak void al_exti_2(void) {
+    return;
+}
+
 #ifdef configASSERT
 inline void os_assert_failed(void) {
     HAL_Assert_Failed();
@@ -95,8 +105,16 @@ void HAL_SYSTICK_Callback(void) {
   * @retval None
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    if (GPIO_PIN_1 == GPIO_Pin) {
+    int index;
+
+    BSP_EXTI_PIN2IDX(GPIO_Pin, index);
+
+    if (0 == index) {
         al_exti_0();
+    } else if (1 == index) {
+        al_exti_1();
+    } else if (2 == index) {
+        al_exti_2();
     }
 }
 

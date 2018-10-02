@@ -9,8 +9,10 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#ifdef HORIZON_MINI_L4
+#if defined(HORIZON_MINI_L4)
 #include "nucleo_l432kc_bsp_config.h"
+#elif defined(HORIZON_STD_L4) || defined(HORIZON_GS_STD_L4)
+#include "nucleo_l476rg_bsp_config.h"
 #else
 #error please specify a target board
 #endif
