@@ -27,6 +27,17 @@ do { \
     (PIN) = GPIO_PIN_3; \
 } while (0)
 
+#define BSP_EXTI_PIN2IDX(PIN, INDEX) \
+do { \
+    switch (PIN) { \
+    case GPIO_PIN_1: \
+        (INDEX) = 0; \
+        break; \
+    default: \
+        (INDEX) = -1; \
+    } \
+} while (0)
+
 #define BSP_UART_FD2IDXHDL(FD, INDEX, HUART) \
 do { \
     (INDEX) = 0; \
