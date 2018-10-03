@@ -94,8 +94,10 @@ int main(void) {
 void al_exti_2(void) {
     static uint16_t period = 1000;
 
-    period = (period == 1000) ? 100 : 1000;
-    xTimerChangePeriodFromISR(xTimer_blinkLED, pdMS_TO_TICKS(period), NULL);
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        period = (period == 1000) ? 100 : 1000;
+        xTimerChangePeriodFromISR(xTimer_blinkLED, pdMS_TO_TICKS(period), NULL);
+    }
 }
 
 /******************************** END OF FILE *********************************/
