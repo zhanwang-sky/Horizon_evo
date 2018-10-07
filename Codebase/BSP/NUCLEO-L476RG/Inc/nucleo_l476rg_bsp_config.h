@@ -15,25 +15,42 @@
 #include "stm32l4xx_hal.h"
 
 /* Definitions ---------------------------------------------------------------*/
-#define BSP_NR_GPIOs (1)
-#define BSP_NR_EXTIs (1)
+#define BSP_NR_GPIOs (3)
+#define BSP_NR_EXTIs (3)
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_UARTs (1)
 
 /* Macros --------------------------------------------------------------------*/
 #define BSP_GPIO_FD2PORTPIN(FD, PORT, PIN) \
 do { \
-    (PORT) = GPIOA; \
-    (PIN) = GPIO_PIN_5; \
+    if (0 == (FD)) { \
+        /* PA5(LD2 [green Led]) */ \
+        (PORT) = GPIOA; \
+        (PIN) = GPIO_PIN_5; \
+    } else if (1 == (FD)) { \
+        /* PB5(nRF_CSN) */ \
+        (PORT) = GPIOB; \
+        (PIN) = GPIO_PIN_5; \
+    } else { \
+        /* PB10(nRF_CE) */ \
+        (PORT) = GPIOB; \
+        (PIN) = GPIO_PIN_10; \
+    } \
 } while (0)
 
 #define BSP_EXTI_PIN2IDX(PIN, INDEX) \
 do { \
     switch (PIN) { \
     case GPIO_PIN_9: \
+        /* PC9(MPU_INT) */ \
         (INDEX) = 0; \
         break; \
+    case GPIO_PIN_4: \
+        /* PB4(nRF_IRQ) */ \
+        (INDEX) = 1; \
+        break; \
     case GPIO_PIN_13: \
+        /* PC13(B1 [Blue PushButton]) */ \
         (INDEX) = 2; \
         break; \
     default: \

@@ -211,6 +211,15 @@ void DMA2_Channel7_IRQHandler(void) {
 }
 
 /**
+  * @brief  This function handles EXTI line4 interrupt.
+  * @param  None
+  * @retval None
+  */
+void EXTI4_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
+}
+
+/**
   * @brief  This function handles EXTI line[9:5] interrupts.
   * @param  None
   * @retval None
