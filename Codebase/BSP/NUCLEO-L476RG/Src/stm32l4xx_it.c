@@ -39,9 +39,12 @@
 #include "stm32l4xx_hal.h"
 
 /* External variables --------------------------------------------------------*/
+extern DMA_HandleTypeDef hdma_spi2_rx;
+extern DMA_HandleTypeDef hdma_spi2_tx;
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern I2C_HandleTypeDef hi2c1;
+extern SPI_HandleTypeDef hspi2;
 extern UART_HandleTypeDef huart2;
 extern DMA_HandleTypeDef hdma_i2c1_rx;
 extern DMA_HandleTypeDef hdma_i2c1_tx;
@@ -148,6 +151,24 @@ void SysTick_Handler(void) {
 /*  file (startup_stm32l4xxxx.s).                                             */
 /******************************************************************************/
 /**
+  * @brief  This function handles DMA1 channel4 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel4_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_spi2_rx);
+}
+
+/**
+  * @brief  This function handles DMA1 channel5 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel5_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_spi2_tx);
+}
+
+/**
   * @brief  This function handles DMA1 channel6 global interrupt.
   * @param  None
   * @retval None
@@ -181,6 +202,15 @@ void I2C1_EV_IRQHandler(void) {
   */
 void I2C1_ER_IRQHandler(void) {
     HAL_I2C_ER_IRQHandler(&hi2c1);
+}
+
+/**
+  * @brief  This function handles SPI2 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void SPI2_IRQHandler(void) {
+    HAL_SPI_IRQHandler(&hspi2);
 }
 
 /**

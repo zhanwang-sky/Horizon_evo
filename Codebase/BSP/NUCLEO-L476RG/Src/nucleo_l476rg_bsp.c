@@ -18,6 +18,7 @@
 /* Global variables ----------------------------------------------------------*/
 UART_HandleTypeDef huart2;
 I2C_HandleTypeDef hi2c1;
+SPI_HandleTypeDef hspi2;
 
 /* Functions -----------------------------------------------------------------*/
 /**
@@ -164,6 +165,12 @@ void BSP_DMA_Init(void) {
     __HAL_RCC_DMA2_CLK_ENABLE();
 
     /* DMA interrupt init */
+    /* DMA1_Channel4_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+    /* DMA1_Channel5_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
     /* DMA1_Channel6_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
@@ -219,6 +226,26 @@ void BSP_I2C1_Init(void) {
     }
 }
 
+void BSP_SPI2_Init(void) {
+    hspi2.Instance = SPI2;
+    hspi2.Init.Mode = SPI_MODE_MASTER;
+    hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+    hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+    hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+    hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+    hspi2.Init.NSS = SPI_NSS_SOFT;
+    hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+    hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+    hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+    hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+    hspi2.Init.CRCPolynomial = 7;
+    hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+    hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+    if (HAL_SPI_Init(&hspi2) != HAL_OK) {
+        while(1);
+    }
+}
+
 void BSP_MCU_Init(void) {
     /* STM32L4xx HAL library initialization:
        - Configure the Flash prefetch, Flash preread and Buffer caches.
@@ -239,6 +266,7 @@ void BSP_MCU_Init(void) {
     BSP_DMA_Init();
     BSP_USART2_UART_Init();
     BSP_I2C1_Init();
+    BSP_SPI2_Init();
 
     return;
 }
