@@ -15,7 +15,7 @@
 #include "stm32l4xx_hal.h"
 
 /* Definitions ---------------------------------------------------------------*/
-#define BSP_NR_GPIOs (3)
+#define BSP_NR_GPIOs (2)
 #define BSP_NR_EXTIs (3)
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_UARTs (1)
@@ -26,10 +26,6 @@ do { \
     if (0 == (FD)) { \
         /* PA5(LD2 [green Led]) */ \
         (PORT) = GPIOA; \
-        (PIN) = GPIO_PIN_5; \
-    } else if (1 == (FD)) { \
-        /* PB5(nRF_CSN) */ \
-        (PORT) = GPIOB; \
         (PIN) = GPIO_PIN_5; \
     } else { \
         /* PB10(nRF_CE) */ \
