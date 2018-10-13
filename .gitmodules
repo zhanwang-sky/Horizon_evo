@@ -7,3 +7,6 @@
 [submodule "Codebase/Drivers/CMSIS"]
 	path = Codebase/Drivers/CMSIS
 	url = https://github.com/zhanwang-sky/CMSIS.git
+[submodule "Codebase/Application/BOSCH/BMP280_driver"]
+	path = Codebase/Application/BOSCH/BMP280_driver
+	url = https://github.com/zhanwang-sky/BMP280_driver.git
