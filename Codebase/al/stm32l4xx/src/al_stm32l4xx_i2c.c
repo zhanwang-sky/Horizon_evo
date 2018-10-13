@@ -28,15 +28,25 @@ typedef HAL_StatusTypeDef(*_HAL_I2C_Mem_Xfer_DMA_t) \
 /* Private variables ---------------------------------------------------------*/
 static SemaphoreHandle_t xSem_i2c[BSP_NR_I2Cs] = { NULL };
 static SemaphoreHandle_t xSem_i2cCplt[BSP_NR_I2Cs] = { NULL };
-//volatile static unsigned int uI2CBytesLeft[BSP_NR_I2Cs] = { 0 };
-//volatile static _HAL_I2C_Mem_Xfer_DMA_t xI2CXfer = NULL;
 
 /* Functions -----------------------------------------------------------------*/
-static int _al_i2c_xfer(int index, I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t regAddr, uint8_t *buf, uint16_t nBytes, _HAL_I2C_Mem_Xfer_DMA_t xfer) {
-    int rc;
+int al_i2c_init(void) {
+    for (int i = 0; i < BSP_NR_I2Cs; i++) {
+        if (NULL == (xSem_i2c[i] = xSemaphoreCreateMutex())) {
+            return -1;
+        }
+        if (NULL == (xSem_i2cCplt[i] = xSemaphoreCreateBinary())) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int _al_i2c_xfer(int index, I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t regAddr, uint8_t *buf, uint16_t nBytes, _HAL_I2C_Mem_Xfer_DMA_t xfer) {
+    int rc = 0;
 
     xSemaphoreTake(xSem_i2c[index], portMAX_DELAY);
-    //xI2CXfer = xfer;
 
     if (xfer(hi2c, devAddr, regAddr, I2C_MEMADD_SIZE_8BIT, buf, nBytes) != HAL_OK) {
         rc = -1;
@@ -49,27 +59,10 @@ static int _al_i2c_xfer(int index, I2C_HandleTypeDef *hi2c, uint8_t devAddr, uin
         rc = -1;
     }
 
-    /* return the number of bytes already sent/received instead of -1 */
-    //rc = nBytes - uI2CBytesLeft[index];
-
 EXIT:
-    //xI2CXfer = NULL;
     xSemaphoreGive(xSem_i2c[index]);
 
     return rc;
-}
-
-int al_i2c_init(void) {
-    for (int i = 0; i < BSP_NR_I2Cs; i++) {
-        if (NULL == (xSem_i2c[i] = xSemaphoreCreateMutex())) {
-            return -1;
-        }
-        if (NULL == (xSem_i2cCplt[i] = xSemaphoreCreateBinary())) {
-            return -1;
-        }
-    }
-
-    return 0;
 }
 
 int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes) {
@@ -104,17 +97,6 @@ static void _al_i2c_xferCpltCallback(I2C_HandleTypeDef *hi2c) {
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_I2C_HDL2IDX(hi2c, index);
-        /*
-        if (xI2CXfer != NULL) {
-            if (HAL_I2C_Mem_Write_DMA == xI2CXfer) {
-                uI2CBytesLeft[index] = (unsigned int) hi2c->hdmatx->Instance->CNDTR;
-            } else if (HAL_I2C_Mem_Read_DMA == xI2CXfer) {
-                uI2CBytesLeft[index] = (unsigned int) hi2c->hdmarx->Instance->CNDTR;
-            } else {
-                uI2CBytesLeft[index] = 0;
-            }
-        }
-        */
         xSemaphoreGiveFromISR(xSem_i2cCplt[index], NULL);
     }
 }
