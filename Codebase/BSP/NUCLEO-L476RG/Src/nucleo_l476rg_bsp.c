@@ -227,6 +227,9 @@ void BSP_I2C1_Init(void) {
 }
 
 void BSP_SPI2_Init(void) {
+    /* workaround */
+    uint8_t txdata = 0xFF, rxdata = 0;
+
     hspi2.Instance = SPI2;
     hspi2.Init.Mode = SPI_MODE_MASTER;
     hspi2.Init.Direction = SPI_DIRECTION_2LINES;
@@ -244,6 +247,9 @@ void BSP_SPI2_Init(void) {
     if (HAL_SPI_Init(&hspi2) != HAL_OK) {
         while(1);
     }
+
+    /* workaround */
+    HAL_SPI_TransmitReceive(&hspi2, &txdata, &rxdata, 1, 10);
 }
 
 void BSP_MCU_Init(void) {
