@@ -19,6 +19,8 @@
 #define BSP_NR_EXTIs (3)
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_UARTs (1)
+#define BSP_NR_SPIs (1)
+#define BSP_NR_SPI_NSS (1)
 
 /* Macros --------------------------------------------------------------------*/
 #define BSP_GPIO_FD2PORTPIN(FD, PORT, PIN) \
@@ -76,9 +78,33 @@ do { \
     (INDEX) = 0; \
 } while(0)
 
+#define BSP_SPI_FD2IDXHDL(FD, INDEX, HSPI) \
+do { \
+    (INDEX) = 0; \
+    (HSPI) = &hspi2; \
+} while(0)
+
+#define BSP_SPI_SUBFD2PORTPIN(SUBFD, PORT, PIN) \
+do { \
+    (PORT) = GPIOB; \
+    (PIN) = GPIO_PIN_5; \
+} while(0)
+
+#define BSP_SPI_HDL2IDX(HSPI, INDEX) \
+do { \
+    (INDEX) = 0; \
+} while(0)
+
+#define BSP_SPI_HDL2PORTPIN(HSPI, PORT, PIN) \
+do { \
+    (PORT) = GPIOB; \
+    (PIN) = GPIO_PIN_5; \
+} while (0)
+
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart2;
 extern I2C_HandleTypeDef hi2c1;
+extern SPI_HandleTypeDef hspi2;
 
 #endif /* __NUCLEO_L476RG_BSP_CONFIG_H */
 
