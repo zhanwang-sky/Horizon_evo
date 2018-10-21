@@ -39,11 +39,14 @@
 #include "stm32l4xx_hal.h"
 
 /* External variables --------------------------------------------------------*/
+extern DMA_HandleTypeDef hdma_spi1_rx;
+extern DMA_HandleTypeDef hdma_spi1_tx;
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_i2c1_rx;
 extern DMA_HandleTypeDef hdma_i2c1_tx;
 extern I2C_HandleTypeDef hi2c1;
+extern SPI_HandleTypeDef hspi1;
 extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim7;
 
@@ -157,6 +160,33 @@ void EXTI1_IRQHandler(void) {
 }
 
 /**
+  * @brief  This function handles EXTI line3 interrupt.
+  * @param  None
+  * @retval None
+  */
+void EXTI3_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+}
+
+/**
+  * @brief  This function handles DMA1 channel2 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel2_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_spi1_rx);
+}
+
+/**
+  * @brief  This function handles DMA1 channel3 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel3_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_spi1_tx);
+}
+
+/**
   * @brief  This function handles DMA1 channel6 global interrupt.
   * @param  None
   * @retval None
@@ -208,6 +238,15 @@ void I2C1_EV_IRQHandler(void) {
   */
 void I2C1_ER_IRQHandler(void) {
     HAL_I2C_ER_IRQHandler(&hi2c1);
+}
+
+/**
+  * @brief  This function handles SPI1 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void SPI1_IRQHandler(void) {
+    HAL_SPI_IRQHandler(&hspi1);
 }
 
 /**

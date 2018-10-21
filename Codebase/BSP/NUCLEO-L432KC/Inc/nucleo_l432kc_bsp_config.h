@@ -15,23 +15,37 @@
 #include "stm32l4xx_hal.h"
 
 /* Definitions ---------------------------------------------------------------*/
-#define BSP_NR_GPIOs (1)
-#define BSP_NR_EXTIs (1)
+#define BSP_NR_GPIOs (2)
+#define BSP_NR_EXTIs (2)
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_UARTs (1)
+#define BSP_NR_SPIs (1)
+#define BSP_NR_SPI_NSS (1)
 
 /* Macros --------------------------------------------------------------------*/
 #define BSP_GPIO_FD2PORTPIN(FD, PORT, PIN) \
 do { \
-    (PORT) = GPIOB; \
-    (PIN) = GPIO_PIN_3; \
+    if (0 == (FD)) { \
+        /* PB3(LD3 [Green]) */ \
+        (PORT) = GPIOB; \
+        (PIN) = GPIO_PIN_3; \
+    } else { \
+        /* PA1(nRF_CE) */ \
+        (PORT) = GPIOA; \
+        (PIN) = GPIO_PIN_1; \
+    } \
 } while (0)
 
 #define BSP_EXTI_PIN2IDX(PIN, INDEX) \
 do { \
     switch (PIN) { \
     case GPIO_PIN_1: \
+        /* PB1(MPU_INT) */ \
         (INDEX) = 0; \
+        break; \
+    case GPIO_PIN_3: \
+        /* PA3(nRF_IRQ) */ \
+        (INDEX) = 1; \
         break; \
     default: \
         (INDEX) = -1; \
@@ -58,11 +72,35 @@ do { \
 #define BSP_I2C_HDL2IDX(HI2C, INDEX) \
 do { \
     (INDEX) = 0; \
-} while(0)
+} while (0)
+
+#define BSP_SPI_FD2IDXHDL(FD, INDEX, HSPI) \
+do { \
+    (INDEX) = 0; \
+    (HSPI) = &hspi1; \
+} while (0)
+
+#define BSP_SPI_SUBFD2PORTPIN(SUBFD, PORT, PIN) \
+do { \
+    (PORT) = GPIOA; \
+    (PIN) = GPIO_PIN_4; \
+} while (0)
+
+#define BSP_SPI_HDL2IDX(HSPI, INDEX) \
+do { \
+    (INDEX) = 0; \
+} while (0)
+
+#define BSP_SPI_HDL2PORTPIN(HSPI, PORT, PIN) \
+do { \
+    (PORT) = GPIOA; \
+    (PIN) = GPIO_PIN_4; \
+} while (0)
 
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart2;
 extern I2C_HandleTypeDef hi2c1;
+extern SPI_HandleTypeDef hspi1;
 
 #endif /* __NUCLEO_L432KC_BSP_CONFIG_H */
 

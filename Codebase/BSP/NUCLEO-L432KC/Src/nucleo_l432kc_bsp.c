@@ -18,6 +18,7 @@
 /* Global variables ----------------------------------------------------------*/
 UART_HandleTypeDef huart2;
 I2C_HandleTypeDef hi2c1;
+SPI_HandleTypeDef hspi1;
 
 /* Functions -----------------------------------------------------------------*/
 /**
@@ -103,6 +104,28 @@ static void BSP_GPIO_Init(void) {
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
+    /* GPIOA configuration */
+    /* Configure GPIO pin Output Level */
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+    /* Configure GPIO pin: PA1(nRF_CE) */
+    GPIO_InitStruct.Pin = GPIO_PIN_1;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    /* Configure GPIO pin: PA3(nRF_IRQ) */
+    GPIO_InitStruct.Pin = GPIO_PIN_3;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    /* Configure GPIO pin: PA4(nRF_CSN) */
+    GPIO_InitStruct.Pin = GPIO_PIN_4;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
     /* GPIOB configuration */
     /* Configure GPIO pin Output Level */
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
@@ -121,6 +144,8 @@ static void BSP_GPIO_Init(void) {
     /* EXTI interrupt init*/
     HAL_NVIC_SetPriority(EXTI1_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
     HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+    HAL_NVIC_SetPriority(EXTI3_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
+    HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 }
 
 void BSP_DMA_Init(void) {
@@ -129,6 +154,12 @@ void BSP_DMA_Init(void) {
     __HAL_RCC_DMA2_CLK_ENABLE();
 
     /* DMA interrupt init */
+    /* DMA1_Channel2_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+    /* DMA1_Channel3_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
     /* DMA1_Channel6_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
@@ -184,7 +215,30 @@ void BSP_I2C1_Init(void) {
     }
 }
 
+void BSP_SPI1_Init(void) {
+    hspi1.Instance = SPI1;
+    hspi1.Init.Mode = SPI_MODE_MASTER;
+    hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+    hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+    hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+    hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+    hspi1.Init.NSS = SPI_NSS_SOFT;
+    hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+    hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+    hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+    hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+    hspi1.Init.CRCPolynomial = 7;
+    hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+    hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+    if (HAL_SPI_Init(&hspi1) != HAL_OK) {
+        while(1);
+    }
+}
+
 void BSP_MCU_Init(void) {
+    /* workaround */
+    uint8_t txdata = 0xFF, rxdata = 0;
+
     /* STM32L4xx HAL library initialization:
        - Configure the Flash prefetch, Flash preread and Buffer caches.
        - Systick timer is configured by default as source of time base, but user
@@ -204,6 +258,9 @@ void BSP_MCU_Init(void) {
     BSP_DMA_Init();
     BSP_USART2_UART_Init();
     BSP_I2C1_Init();
+    BSP_SPI1_Init();
+    /* workaround */
+    HAL_SPI_TransmitReceive(&hspi1, &txdata, &rxdata, 1, 10);
 
     return;
 }
