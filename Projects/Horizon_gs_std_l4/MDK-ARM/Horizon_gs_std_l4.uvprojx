@@ -384,7 +384,7 @@
             <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\gs\main.c</FilePath>
+              <FilePath>..\..\..\Codebase\Application\main.c</FilePath>
             </File>
             <File>
               <FileName>bmp280.c</FileName>
