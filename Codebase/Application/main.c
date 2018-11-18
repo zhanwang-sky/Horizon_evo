@@ -27,9 +27,11 @@
 #error please specify a target board
 #endif
 
+#include "nrf24l01.h"
+
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blinker;
-char cTxBuf[80] = { '\0' };
+char uartTxBuf[81] = { '\0' };
 
 /* Functions -----------------------------------------------------------------*/
 /* Threads */
@@ -40,26 +42,24 @@ void tBlinker(TimerHandle_t xTimer) {
 void tPrintHello(void *pvParameters) {
     int len;
     TickType_t xLastWakeTime;
-    // nRF24L01
-    uint8_t uTxData = 0xFF, uRxData1 = 0xE1, uRxData2 = 0xE2;
+    int n = 0;
 
     /* initialize... */
-    len = snprintf(cTxBuf, sizeof(cTxBuf), "\033c\033[2Jinitializing...\r\n");
-    al_uart_write(0, (uint8_t *) cTxBuf, len);
+    len = snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c\033[2Jinitializing...\r\n");
+    al_uart_write(0, (uint8_t *) uartTxBuf, len);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    len = snprintf(cTxBuf, sizeof(cTxBuf), "hello world!\r\n");
-    al_uart_write(0, (uint8_t *) cTxBuf, len);
+    nrf_power_up(0);
+    nrf_power_up(1);
+
+    len = snprintf(uartTxBuf, sizeof(uartTxBuf), "hello nRF24L01!\r\n");
+    al_uart_write(0, (uint8_t *) uartTxBuf, len);
 
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        // nRF24L01
-        al_spi_write_read(0, 0, &uTxData, &uRxData1, 1);
-        al_spi_write_read(0, 0, &uTxData, &uRxData2, 1);
-        len = snprintf(cTxBuf, sizeof(cTxBuf),
-            "data1 = %02X, data2 = %02X\r\n", uRxData1, uRxData2);
-        al_uart_write(0, (uint8_t *) cTxBuf, len);
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(300));
+        len = snprintf(uartTxBuf, sizeof(uartTxBuf), "%4d\r\n", ++n);
+        al_uart_write(0, (uint8_t *) uartTxBuf, len);
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
     }
 }
 
@@ -100,5 +100,16 @@ int main(void) {
        details. */
     while(1);
 }
+
+#if defined(HORIZON_GS_STD_L4)
+void al_exti_2(void) {
+    static uint32_t period = 1000;
+
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        period = (period == 1000) ? 100 : 1000;
+        xTimerChangePeriodFromISR(xTimer_blinker, pdMS_TO_TICKS(period), NULL);
+    }
+}
+#endif
 
 /******************************** END OF FILE *********************************/
