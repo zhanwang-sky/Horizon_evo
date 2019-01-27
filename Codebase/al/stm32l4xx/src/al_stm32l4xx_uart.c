@@ -24,6 +24,8 @@
 /* Private variables ---------------------------------------------------------*/
 SemaphoreHandle_t _al_uart_txMutex[BSP_NR_UARTs];
 SemaphoreHandle_t _al_uart_txCpltSem[BSP_NR_UARTs];
+volatile int8_t _al_uart_txErr[BSP_NR_UARTs];
+uint8_t _al_uart_rxBuf[BSP_NR_UARTs];
 
 /* Functions -----------------------------------------------------------------*/
 int al_uart_init(void) {
@@ -52,6 +54,7 @@ int al_uart_write(int fd, const void *buf, unsigned int nbytes) {
 
     xSemaphoreTake(_al_uart_txMutex[index], portMAX_DELAY);
 
+    _al_uart_txErr[index] = 0;
     if (HAL_UART_Transmit_DMA(huart, (uint8_t *) buf, (uint16_t) nbytes) != HAL_OK) {
         rc = -1;
         goto EXIT;
@@ -59,7 +62,7 @@ int al_uart_write(int fd, const void *buf, unsigned int nbytes) {
 
     xSemaphoreTake(_al_uart_txCpltSem[index], portMAX_DELAY);
 
-    if (huart->ErrorCode != HAL_UART_ERROR_NONE) {
+    if (_al_uart_txErr[index] != 0) {
         rc = -1;
     }
 
@@ -67,6 +70,30 @@ EXIT:
     xSemaphoreGive(_al_uart_txMutex[index]);
 
     return rc;
+}
+
+int al_uart_start_receiving(int fd) {
+    UART_HandleTypeDef *huart;
+    int index;
+    HAL_StatusTypeDef rc;
+
+    if (fd < 0 || fd >= BSP_NR_UARTs) {
+        return -1;
+    }
+
+    BSP_UART_FD2IDXHDL(fd, index, huart);
+
+    rc = HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
+    /* It's okay if receiving is already in progress. */
+    if (rc != HAL_OK || rc != HAL_BUSY) {
+        return -1;
+    }
+
+    return 0;
+}
+
+__weak void al_uart_0_callback(int state, unsigned char data, int *brk) {
+    return;
 }
 
 /* ISR callbacks -------------------------------------------------------------*/
@@ -85,16 +112,50 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 /**
+  * @brief  UART Rx Transfer completed callback.
+  * @param  huart UART handle.
+  * @retval None
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    int index;
+    int brk = 0;
+
+    BSP_UART_HDL2IDX(huart, index);
+    if (0 == index) {
+        al_uart_0_callback(0, _al_uart_rxBuf[index], &brk);
+    }
+    if (0 == brk) {
+        HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
+    }
+}
+
+/**
   * @brief  UART error callback.
   * @param  huart UART handle.
   * @retval None
   */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     int index;
+    int brk = 0;
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_UART_HDL2IDX(huart, index);
-        xSemaphoreGiveFromISR(_al_uart_txCpltSem[index], NULL);
+        /* Only DMA error may cause Tx fail */
+        if ((huart->ErrorCode & HAL_UART_ERROR_DMA) != 0) {
+            huart->ErrorCode = HAL_UART_ERROR_NONE;
+            _al_uart_txErr[index] = 1;
+            xSemaphoreGiveFromISR(_al_uart_txCpltSem[index], NULL);
+        } else {
+            /* DMA error and Rx error should not occur simultaneously,
+               so, if not a DMA error, it must be an Rx error. */
+            if (0 == index) {
+                al_uart_0_callback(-1, 0, &brk);
+            }
+            if (0 == brk) {
+                /* This will reset huart->ErrorCode */
+                HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
+            }
+        }
     }
 }
 

@@ -19,6 +19,7 @@ int al_gpio_toggle_pin(int fd);
 /* uart */
 int al_uart_init(void);
 int al_uart_write(int fd, const void *buf, unsigned int nbytes);
+int al_uart_start_receiving(int fd);
 /* i2c */
 int al_i2c_init(void);
 int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes);
