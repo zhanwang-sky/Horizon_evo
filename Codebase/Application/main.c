@@ -27,11 +27,13 @@
 #error please specify a target board
 #endif
 
-#include "nrf24l01.h"
+/* Definitions ---------------------------------------------------------------*/
+#define INTERACT_UART_FD 0
+#define INTERACT_UART_TXBUF_LEN 81
 
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blinker;
-char uartTxBuf[81] = { '\0' };
+char uartTxBuf[INTERACT_UART_TXBUF_LEN] = { '\0' };
 
 /* Functions -----------------------------------------------------------------*/
 /* Threads */
@@ -39,26 +41,30 @@ void tBlinker(TimerHandle_t xTimer) {
     al_gpio_toggle_pin(0);
 }
 
-void tPrintHello(void *pvParameters) {
-    int len;
+void tInteraction(void *pvParameters) {
     TickType_t xLastWakeTime;
-    int n = 0;
+    int len;
+    uint16_t n = 0;
+    // I2C test
+    int rc;
+    uint8_t data = 0x88;
 
     /* initialize... */
-    len = snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c\033[2Jinitializing...\r\n");
-    al_uart_write(0, (uint8_t *) uartTxBuf, len);
+    len = snprintf(uartTxBuf, sizeof(uartTxBuf), "\033c\033[2JInitializing...\r\n");
+    al_uart_write(INTERACT_UART_FD, (uint8_t *) uartTxBuf, len);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    nrf_power_up(0);
-    nrf_power_up(1);
-
-    len = snprintf(uartTxBuf, sizeof(uartTxBuf), "hello nRF24L01!\r\n");
-    al_uart_write(0, (uint8_t *) uartTxBuf, len);
+    // I2C test
+    rc = al_i2c_read(0, 0xD0, 0x75, &data, 1);
+    if (rc != 0) {
+        len = snprintf(uartTxBuf, sizeof(uartTxBuf), "I2C bus error!\r\n");
+        al_uart_write(INTERACT_UART_FD, (uint8_t *) uartTxBuf, len);
+    }
 
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        len = snprintf(uartTxBuf, sizeof(uartTxBuf), "%4d\r\n", ++n);
-        al_uart_write(0, (uint8_t *) uartTxBuf, len);
+        len = snprintf(uartTxBuf, sizeof(uartTxBuf), "%5u: data = 0x%X\r\n", n++, data);
+        al_uart_write(INTERACT_UART_FD, (uint8_t *) uartTxBuf, len);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
     }
 }
@@ -82,8 +88,8 @@ int main(void) {
     xTimerStart(xTimer_blinker, 0);
 
     /* Create tasks */
-    xTaskCreate(tPrintHello,
-                "tPrintHello",
+    xTaskCreate(tInteraction,
+                "tInteraction",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2U,
@@ -102,7 +108,7 @@ int main(void) {
 }
 
 #if defined(HORIZON_GS_STD_L4)
-void al_exti_2(void) {
+void al_exti_2_callback(void) {
     static uint32_t period = 1000;
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {

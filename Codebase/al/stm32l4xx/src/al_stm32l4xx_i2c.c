@@ -21,21 +21,34 @@
 #include "task.h"
 #include "semphr.h"
 
+#include <string.h>
+
 /* Private typedef -----------------------------------------------------------*/
 typedef HAL_StatusTypeDef(*_HAL_I2C_Mem_Xfer_DMA_t) \
-    (I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, uint16_t MemAddSize, uint8_t *pData, uint16_t Size);
+    (I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, \
+     uint16_t MemAddSize, uint8_t *pData, uint16_t Size);
+
+typedef struct _al_i2c_params {
+    int index;
+    I2C_HandleTypeDef *hi2c;
+    uint8_t dev_addr;
+    uint8_t reg_addr;
+    uint8_t *buf;
+    uint16_t nbytes;
+    _HAL_I2C_Mem_Xfer_DMA_t xfer;
+} _al_i2c_params_t;
 
 /* Private variables ---------------------------------------------------------*/
-static SemaphoreHandle_t xSem_i2c[BSP_NR_I2Cs] = { NULL };
-static SemaphoreHandle_t xSem_i2cCplt[BSP_NR_I2Cs] = { NULL };
+static SemaphoreHandle_t _al_i2c_mutex[BSP_NR_I2Cs] = { NULL };
+static SemaphoreHandle_t _al_i2c_cpltSem[BSP_NR_I2Cs] = { NULL };
 
 /* Functions -----------------------------------------------------------------*/
 int al_i2c_init(void) {
     for (int i = 0; i < BSP_NR_I2Cs; i++) {
-        if (NULL == (xSem_i2c[i] = xSemaphoreCreateMutex())) {
+        if (NULL == (_al_i2c_mutex[i] = xSemaphoreCreateMutex())) {
             return -1;
         }
-        if (NULL == (xSem_i2cCplt[i] = xSemaphoreCreateBinary())) {
+        if (NULL == (_al_i2c_cpltSem[i] = xSemaphoreCreateBinary())) {
             return -1;
         }
     }
@@ -43,52 +56,67 @@ int al_i2c_init(void) {
     return 0;
 }
 
-int _al_i2c_xfer(int index, I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t regAddr, uint8_t *buf, uint16_t nBytes, _HAL_I2C_Mem_Xfer_DMA_t xfer) {
+int _al_i2c_xfer(_al_i2c_params_t *params) {
     int rc = 0;
 
-    xSemaphoreTake(xSem_i2c[index], portMAX_DELAY);
+    xSemaphoreTake(_al_i2c_mutex[params->index], portMAX_DELAY);
 
-    if (xfer(hi2c, devAddr, regAddr, I2C_MEMADD_SIZE_8BIT, buf, nBytes) != HAL_OK) {
+    if (params->xfer(params->hi2c, params->dev_addr, params->reg_addr,
+        I2C_MEMADD_SIZE_8BIT, params->buf, params->nbytes) != HAL_OK) {
         rc = -1;
         goto EXIT;
     }
 
-    xSemaphoreTake(xSem_i2cCplt[index], portMAX_DELAY);
+    xSemaphoreTake(_al_i2c_cpltSem[params->index], portMAX_DELAY);
 
-    if (hi2c->ErrorCode != HAL_I2C_ERROR_NONE) {
+    if (params->hi2c->ErrorCode != HAL_I2C_ERROR_NONE) {
         rc = -1;
     }
 
 EXIT:
-    xSemaphoreGive(xSem_i2c[index]);
+    xSemaphoreGive(_al_i2c_mutex[params->index]);
 
     return rc;
 }
 
 int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes) {
-    I2C_HandleTypeDef *hi2c;
-    int index;
+    _al_i2c_params_t params;
 
-    if (fd < 0 || fd >= BSP_NR_I2Cs || NULL == buf || nbytes > 0xFFFF) {
+    if ((fd < 0 || fd >= BSP_NR_I2Cs)
+        || (NULL == buf)
+        || (0 == nbytes || nbytes > 0xFFFF)) {
         return -1;
     }
 
-    BSP_I2C_FD2IDXHDL(fd, index, hi2c);
+    memset(&params, 0, sizeof(params));
+    BSP_I2C_FD2IDXHDL(fd, params.index, params.hi2c);
+    params.dev_addr = dev_addr;
+    params.reg_addr = reg_addr;
+    params.buf = (uint8_t *) buf;
+    params.nbytes = nbytes;
+    params.xfer = HAL_I2C_Mem_Write_DMA;
 
-    return _al_i2c_xfer(index, hi2c, dev_addr, reg_addr, (uint8_t *) buf, (uint16_t) nbytes, HAL_I2C_Mem_Write_DMA);
+    return _al_i2c_xfer(&params);
 }
 
 int al_i2c_read(int fd, char dev_addr, char reg_addr, void *buf, unsigned int nbytes) {
-    I2C_HandleTypeDef *hi2c;
-    int index;
+    _al_i2c_params_t params;
 
-    if (fd < 0 || fd >= BSP_NR_I2Cs || NULL == buf || nbytes > 0xFFFF) {
+    if ((fd < 0 || fd >= BSP_NR_I2Cs)
+        || (NULL == buf)
+        || (0 == nbytes || nbytes > 0xFFFF)) {
         return -1;
     }
 
-    BSP_I2C_FD2IDXHDL(fd, index, hi2c);
+    memset(&params, 0, sizeof(params));
+    BSP_I2C_FD2IDXHDL(fd, params.index, params.hi2c);
+    params.dev_addr = dev_addr;
+    params.reg_addr = reg_addr;
+    params.buf = buf;
+    params.nbytes = nbytes;
+    params.xfer = HAL_I2C_Mem_Read_DMA;
 
-    return _al_i2c_xfer(index, hi2c, dev_addr, reg_addr, (uint8_t *) buf, (uint16_t) nbytes, HAL_I2C_Mem_Read_DMA);
+    return _al_i2c_xfer(&params);
 }
 
 /* ISR callbacks -------------------------------------------------------------*/
@@ -97,7 +125,7 @@ static void _al_i2c_xferCpltCallback(I2C_HandleTypeDef *hi2c) {
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_I2C_HDL2IDX(hi2c, index);
-        xSemaphoreGiveFromISR(xSem_i2cCplt[index], NULL);
+        xSemaphoreGiveFromISR(_al_i2c_cpltSem[index], NULL);
     }
 }
 

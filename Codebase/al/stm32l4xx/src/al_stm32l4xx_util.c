@@ -49,7 +49,7 @@ int al_gpio_read_pin(int fd, int *pState) {
 
     BSP_GPIO_FD2PORTPIN(fd, port, pin);
 
-    *pState = HAL_GPIO_ReadPin(port, pin);
+    *pState = (GPIO_PIN_RESET == HAL_GPIO_ReadPin(port, pin)) ? 0 : 1;
 
     return 0;
 }
@@ -69,15 +69,15 @@ int al_gpio_toggle_pin(int fd) {
     return 0;
 }
 
-__weak void al_exti_0(void) {
+__weak void al_exti_0_callback(void) {
     return;
 }
 
-__weak void al_exti_1(void) {
+__weak void al_exti_1_callback(void) {
     return;
 }
 
-__weak void al_exti_2(void) {
+__weak void al_exti_2_callback(void) {
     return;
 }
 
@@ -110,11 +110,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     BSP_EXTI_PIN2IDX(GPIO_Pin, index);
 
     if (0 == index) {
-        al_exti_0();
+        al_exti_0_callback();
     } else if (1 == index) {
-        al_exti_1();
+        al_exti_1_callback();
     } else if (2 == index) {
-        al_exti_2();
+        al_exti_2_callback();
     }
 }
 

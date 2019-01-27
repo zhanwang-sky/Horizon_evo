@@ -35,15 +35,28 @@ typedef struct _al_spi_params {
 } _al_spi_params_t;
 
 /* Private variables ---------------------------------------------------------*/
-static SemaphoreHandle_t xSem_spi[BSP_NR_SPIs] = { NULL };
-static SemaphoreHandle_t xSem_spiCplt[BSP_NR_SPIs] = { NULL };
+static SemaphoreHandle_t _al_spi_mutex[BSP_NR_SPIs] = { NULL };
+static SemaphoreHandle_t _al_spi_cpltSem[BSP_NR_SPIs] = { NULL };
 
 /* Functions -----------------------------------------------------------------*/
+int al_spi_init(void) {
+    for (int i = 0; i < BSP_NR_SPIs; i++) {
+        if (NULL == (_al_spi_mutex[i] = xSemaphoreCreateMutex())) {
+            return -1;
+        }
+        if (NULL == (_al_spi_cpltSem[i] = xSemaphoreCreateBinary())) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 int _al_spi_xfer(_al_spi_params_t *params) {
     int rc = 0;
     HAL_StatusTypeDef hal_rc;
 
-    xSemaphoreTake(xSem_spi[params->index], portMAX_DELAY);
+    xSemaphoreTake(_al_spi_mutex[params->index], portMAX_DELAY);
 
     /* ---------- enter critical area ---------- */
     taskENTER_CRITICAL();
@@ -73,28 +86,15 @@ int _al_spi_xfer(_al_spi_params_t *params) {
         goto EXIT;
     }
 
-    xSemaphoreTake(xSem_spiCplt[params->index], portMAX_DELAY);
+    xSemaphoreTake(_al_spi_cpltSem[params->index], portMAX_DELAY);
 
     if (params->hspi->ErrorCode != HAL_SPI_ERROR_NONE) {
         rc = -1;
     }
 
 EXIT:
-    xSemaphoreGive(xSem_spi[params->index]);
+    xSemaphoreGive(_al_spi_mutex[params->index]);
     return rc;
-}
-
-int al_spi_init(void) {
-    for (int i = 0; i < BSP_NR_SPIs; i++) {
-        if (NULL == (xSem_spi[i] = xSemaphoreCreateMutex())) {
-            return -1;
-        }
-        if (NULL == (xSem_spiCplt[i] = xSemaphoreCreateBinary())) {
-            return -1;
-        }
-    }
-
-    return 0;
 }
 
 int al_spi_write(int fd, int subfd, const void *buf, unsigned int nbytes) {
@@ -168,7 +168,7 @@ void _al_spi_xferCpltCallback(SPI_HandleTypeDef *hspi) {
         BSP_SPI_HDL2PORTPIN(hspi, port, pin);
         HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET);
         BSP_SPI_HDL2IDX(hspi, index);
-        xSemaphoreGiveFromISR(xSem_spiCplt[index], NULL);
+        xSemaphoreGiveFromISR(_al_spi_cpltSem[index], NULL);
     }
 }
 

@@ -22,16 +22,16 @@
 #include "semphr.h"
 
 /* Private variables ---------------------------------------------------------*/
-SemaphoreHandle_t xSem_uartTx[BSP_NR_UARTs];
-SemaphoreHandle_t xSem_uartTxCplt[BSP_NR_UARTs];
+SemaphoreHandle_t _al_uart_txMutex[BSP_NR_UARTs];
+SemaphoreHandle_t _al_uart_txCpltSem[BSP_NR_UARTs];
 
 /* Functions -----------------------------------------------------------------*/
 int al_uart_init(void) {
     for (int i = 0; i < BSP_NR_UARTs; i++) {
-        if (NULL == (xSem_uartTx[i] = xSemaphoreCreateMutex())) {
+        if (NULL == (_al_uart_txMutex[i] = xSemaphoreCreateMutex())) {
             return -1;
         }
-        if (NULL == (xSem_uartTxCplt[i] = xSemaphoreCreateBinary())) {
+        if (NULL == (_al_uart_txCpltSem[i] = xSemaphoreCreateBinary())) {
             return -1;
         }
     }
@@ -50,21 +50,21 @@ int al_uart_write(int fd, const void *buf, unsigned int nbytes) {
 
     BSP_UART_FD2IDXHDL(fd, index, huart);
 
-    xSemaphoreTake(xSem_uartTx[index], portMAX_DELAY);
+    xSemaphoreTake(_al_uart_txMutex[index], portMAX_DELAY);
 
     if (HAL_UART_Transmit_DMA(huart, (uint8_t *) buf, (uint16_t) nbytes) != HAL_OK) {
         rc = -1;
         goto EXIT;
     }
 
-    xSemaphoreTake(xSem_uartTxCplt[index], portMAX_DELAY);
+    xSemaphoreTake(_al_uart_txCpltSem[index], portMAX_DELAY);
 
     if (huart->ErrorCode != HAL_UART_ERROR_NONE) {
         rc = -1;
     }
 
 EXIT:
-    xSemaphoreGive(xSem_uartTx[index]);
+    xSemaphoreGive(_al_uart_txMutex[index]);
 
     return rc;
 }
@@ -80,7 +80,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_UART_HDL2IDX(huart, index);
-        xSemaphoreGiveFromISR(xSem_uartTxCplt[index], NULL);
+        xSemaphoreGiveFromISR(_al_uart_txCpltSem[index], NULL);
     }
 }
 
@@ -94,7 +94,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_UART_HDL2IDX(huart, index);
-        xSemaphoreGiveFromISR(xSem_uartTxCplt[index], NULL);
+        xSemaphoreGiveFromISR(_al_uart_txCpltSem[index], NULL);
     }
 }
 
