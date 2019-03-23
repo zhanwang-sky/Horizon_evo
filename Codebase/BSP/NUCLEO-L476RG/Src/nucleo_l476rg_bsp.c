@@ -171,9 +171,6 @@ void BSP_DMA_Init(void) {
     /* DMA1_Channel5_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
-    /* DMA1_Channel6_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
     /* DMA1_Channel7_IRQn interrupt configuration */
     HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
