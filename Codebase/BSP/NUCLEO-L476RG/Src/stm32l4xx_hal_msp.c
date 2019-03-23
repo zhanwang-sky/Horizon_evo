@@ -39,7 +39,6 @@
 #include "stm32l4xx_hal.h"
 
 /* Global variables ----------------------------------------------------------*/
-DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 DMA_HandleTypeDef hdma_i2c1_rx;
 DMA_HandleTypeDef hdma_i2c1_tx;
@@ -99,21 +98,6 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle) {
         HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
         /* USART2 DMA Init */
-        /* USART2_RX Init */
-        hdma_usart2_rx.Instance = DMA1_Channel6;
-        hdma_usart2_rx.Init.Request = DMA_REQUEST_2;
-        hdma_usart2_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
-        hdma_usart2_rx.Init.PeriphInc = DMA_PINC_DISABLE;
-        hdma_usart2_rx.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_usart2_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-        hdma_usart2_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-        hdma_usart2_rx.Init.Mode = DMA_NORMAL;
-        hdma_usart2_rx.Init.Priority = DMA_PRIORITY_LOW;
-        if (HAL_DMA_Init(&hdma_usart2_rx) != HAL_OK) {
-            while(1);
-        }
-        __HAL_LINKDMA(uartHandle, hdmarx, hdma_usart2_rx);
-
         /* USART2_TX Init */
         hdma_usart2_tx.Instance = DMA1_Channel7;
         hdma_usart2_tx.Init.Request = DMA_REQUEST_2;

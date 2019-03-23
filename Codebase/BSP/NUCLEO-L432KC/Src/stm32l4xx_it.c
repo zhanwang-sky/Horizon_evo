@@ -41,7 +41,6 @@
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_spi1_rx;
 extern DMA_HandleTypeDef hdma_spi1_tx;
-extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_i2c1_rx;
 extern DMA_HandleTypeDef hdma_i2c1_tx;
@@ -184,15 +183,6 @@ void DMA1_Channel2_IRQHandler(void) {
   */
 void DMA1_Channel3_IRQHandler(void) {
     HAL_DMA_IRQHandler(&hdma_spi1_tx);
-}
-
-/**
-  * @brief  This function handles DMA1 channel6 global interrupt.
-  * @param  None
-  * @retval None
-  */
-void DMA1_Channel6_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_usart2_rx);
 }
 
 /**
