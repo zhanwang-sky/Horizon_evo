@@ -15,25 +15,28 @@
 #include "stm32l4xx_hal.h"
 
 /* Definitions ---------------------------------------------------------------*/
-#define BSP_NR_GPIOs (2)
-#define BSP_NR_EXTIs (2)
-#define BSP_NR_I2Cs (1)
+#define BSP_NR_GPIOs (1)
+#define BSP_NR_EXTIs (1)
 #define BSP_NR_UARTs (1)
+#define BSP_NR_I2Cs (1)
 #define BSP_NR_SPIs (1)
 #define BSP_NR_SPI_NSS (1)
+
+#define BSP_SYSTEM_CORE_CLOCK (80000000U)
+#define BSP_UART_BAUD_RATE (9600U)
+#define BSP_I2C_TIMING (0x00702991)
+#define BSP_SPI_PRESCALER SPI_BAUDRATEPRESCALER_16
+#define BSP_DSHORT_TARGET_CNT_CLK (2000U)
+#define BSP_DSHORT_TIMER_PRESCALER (BSP_SYSTEM_CORE_CLOCK / BSP_DSHORT_TARGET_CNT_CLK - 1U)
+#define BSP_DSHORT_TARGET_FRQ (1U)
+#define BSP_DSHORT_TIMER_PERIOD (BSP_DSHORT_TARGET_CNT_CLK / BSP_DSHORT_TARGET_FRQ)
 
 /* Macros --------------------------------------------------------------------*/
 #define BSP_GPIO_FD2PORTPIN(FD, PORT, PIN) \
 do { \
-    if (0 == (FD)) { \
-        /* PB3(LD3 [Green]) */ \
-        (PORT) = GPIOB; \
-        (PIN) = GPIO_PIN_3; \
-    } else { \
-        /* PA1(nRF_CE) */ \
-        (PORT) = GPIOA; \
-        (PIN) = GPIO_PIN_1; \
-    } \
+    /* PB3(LD3 [Green]) */ \
+    (PORT) = GPIOB; \
+    (PIN) = GPIO_PIN_3; \
 } while (0)
 
 #define BSP_EXTI_PIN2IDX(PIN, INDEX) \
@@ -42,10 +45,6 @@ do { \
     case GPIO_PIN_1: \
         /* PB1(MPU_INT) */ \
         (INDEX) = 0; \
-        break; \
-    case GPIO_PIN_3: \
-        /* PA3(nRF_IRQ) */ \
-        (INDEX) = 1; \
         break; \
     default: \
         (INDEX) = -1; \

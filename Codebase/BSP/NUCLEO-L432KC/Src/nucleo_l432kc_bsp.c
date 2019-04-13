@@ -13,12 +13,14 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx_hal.h"
+#include "nucleo_l432kc_bsp_config.h"
 
 /* Global variables ----------------------------------------------------------*/
 UART_HandleTypeDef huart2;
 I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi1;
+TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 
 /* Functions -----------------------------------------------------------------*/
 /**
@@ -41,9 +43,9 @@ SPI_HandleTypeDef hspi1;
   * @retval None
   */
 static void SystemClock_Config(void) {
-    RCC_OscInitTypeDef RCC_OscInitStruct;
-    RCC_ClkInitTypeDef RCC_ClkInitStruct;
-    RCC_PeriphCLKInitTypeDef PeriphClkInit;
+    RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = { 0 };
 
     /* Initializes the CPU, AHB and APB busses clocks */
     RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
@@ -98,7 +100,7 @@ static void SystemClock_Config(void) {
   * @retval None
   */
 static void BSP_GPIO_Init(void) {
-    GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitTypeDef GPIO_InitStruct = { 0 };
 
     /* GPIO Ports Clock Enable */
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -108,18 +110,7 @@ static void BSP_GPIO_Init(void) {
     /* Configure GPIO pin Output Level */
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-    /* Configure GPIO pin: PA1(nRF_CE) */
-    GPIO_InitStruct.Pin = GPIO_PIN_1;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-    /* Configure GPIO pin: PA3(nRF_IRQ) */
-    GPIO_InitStruct.Pin = GPIO_PIN_3;
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    /* Configure GPIO pin: PA4(nRF_CSN) */
+    /* Configure GPIO pin: PA4(SPI1_CS) */
     GPIO_InitStruct.Pin = GPIO_PIN_4;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -155,25 +146,31 @@ void BSP_DMA_Init(void) {
 
     /* DMA interrupt init */
     /* DMA1_Channel2_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
     /* DMA1_Channel3_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+    /* DMA1_Channel6_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
     /* DMA1_Channel7_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
+    /* DMA2_Channel3_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel3_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Channel3_IRQn);
     /* DMA2_Channel6_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
     HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
     /* DMA2_Channel7_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+    HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, SYSTICK_INT_PRIORITY - 3U, 0);
     HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 }
 
 void BSP_USART2_UART_Init(void) {
     huart2.Instance = USART2;
-    huart2.Init.BaudRate = 9600;
+    huart2.Init.BaudRate = BSP_UART_BAUD_RATE;
     huart2.Init.WordLength = UART_WORDLENGTH_8B;
     huart2.Init.StopBits = UART_STOPBITS_1;
     huart2.Init.Parity = UART_PARITY_NONE;
@@ -189,7 +186,7 @@ void BSP_USART2_UART_Init(void) {
 
 void BSP_I2C1_Init(void) {
     hi2c1.Instance = I2C1;
-    hi2c1.Init.Timing = 0x00702991;
+    hi2c1.Init.Timing = BSP_I2C_TIMING;
     hi2c1.Init.OwnAddress1 = 0;
     hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
     hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -220,7 +217,7 @@ void BSP_SPI1_Init(void) {
     hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
     hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
     hspi1.Init.NSS = SPI_NSS_SOFT;
-    hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+    hspi1.Init.BaudRatePrescaler = BSP_SPI_PRESCALER;
     hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
     hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
     hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -230,6 +227,102 @@ void BSP_SPI1_Init(void) {
     if (HAL_SPI_Init(&hspi1) != HAL_OK) {
         while(1);
     }
+}
+
+void BSP_TIM1_Init(void) {
+    TIM_SlaveConfigTypeDef sSlaveConfig = { 0 };
+    TIM_OC_InitTypeDef sConfig = { 0 };
+
+    /* Configure the TIM peripheral */
+    htim1.Instance = TIM1;
+    htim1.Init.Prescaler = BSP_DSHORT_TIMER_PRESCALER;
+    htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim1.Init.Period = BSP_DSHORT_TIMER_PERIOD - 1U;
+    htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim1.Init.RepetitionCounter = 0;
+    htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_PWM_Init(&htim1) != HAL_OK) {
+        while(1);
+    }
+
+    sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
+    sSlaveConfig.InputTrigger = TIM_TS_ITR1;
+    sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_NONINVERTED;
+    sSlaveConfig.TriggerPrescaler = TIM_TRIGGERPRESCALER_DIV1;
+    sSlaveConfig.TriggerFilter = 0;
+    if (HAL_TIM_SlaveConfigSynchronization(&htim1, &sSlaveConfig) != HAL_OK) {
+        while(1);
+    }
+
+    /* Common configuration for all channels */
+    sConfig.OCMode = TIM_OCMODE_PWM1;
+    sConfig.Pulse = 0U;
+    sConfig.OCPolarity = TIM_OCPOLARITY_HIGH;
+    sConfig.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+    sConfig.OCFastMode   = TIM_OCFAST_DISABLE;
+    sConfig.OCIdleState  = TIM_OCIDLESTATE_RESET;
+    sConfig.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+    /* Set the pulse value for channel 1 */
+    if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfig, TIM_CHANNEL_1) != HAL_OK) {
+        while(1);
+    }
+    /* Set the pulse value for channel 2 */
+    if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfig, TIM_CHANNEL_2) != HAL_OK) {
+        while(1);
+    }
+    /* Set the pulse value for channel 3 */
+    if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfig, TIM_CHANNEL_3) != HAL_OK) {
+        while(1);
+    }
+
+    /* Start PWM output */
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+}
+
+void BSP_TIM2_Init(void) {
+    TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+    TIM_OC_InitTypeDef sConfig = { 0 };
+
+    /* Configure the TIM peripheral */
+    htim2.Instance = TIM2;
+    htim2.Init.Prescaler = BSP_DSHORT_TIMER_PRESCALER;
+    htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim2.Init.Period = BSP_DSHORT_TIMER_PERIOD - 1U;
+    htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.RepetitionCounter = 0;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_PWM_Init(&htim2) != HAL_OK) {
+        while(1);
+    }
+
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_ENABLE;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK) {
+        while(1);
+    }
+
+    /* Common configuration for all channels */
+    sConfig.OCMode = TIM_OCMODE_PWM1;
+    sConfig.Pulse = 0U;
+    sConfig.OCPolarity = TIM_OCPOLARITY_HIGH;
+    sConfig.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+    sConfig.OCFastMode   = TIM_OCFAST_DISABLE;
+    sConfig.OCIdleState  = TIM_OCIDLESTATE_RESET;
+    sConfig.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+    /* Set the pulse value for channel 2 */
+    if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfig, TIM_CHANNEL_2) != HAL_OK) {
+        while(1);
+    }
+    /* Set the pulse value for channel 4 */
+    if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfig, TIM_CHANNEL_4) != HAL_OK) {
+        while(1);
+    }
+
+    /* Start PWM output */
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 }
 
 void BSP_MCU_Init(void) {
@@ -258,6 +351,8 @@ void BSP_MCU_Init(void) {
     BSP_SPI1_Init();
     /* workaround */
     HAL_SPI_TransmitReceive(&hspi1, &txdata, &rxdata, 1, 10);
+    BSP_TIM1_Init();
+    BSP_TIM2_Init();
 
     return;
 }
@@ -276,10 +371,11 @@ void HAL_Assert_Failed(void) {
 /* Interrupt service routines ------------------------------------------------*/
 /**
   * @brief  Period elapsed callback in non-blocking mode.
-  * @note   This function is called when TIM7 interrupt took place, inside
-  *         HAL_TIM_IRQHandler().
-  *         It makes a direct call to HAL_IncTick() to increment a global
-  *         variable "uwTick" used as application time base.
+  * @note   This function is called when TIM7 interrupt took place inside
+  *         HAL_TIM_IRQHandler(), or TIM1/TIM2 DMA complete callback.
+  *         In the case of TIM7 interrupt took place, it makes a direct call to
+  *         HAL_IncTick() to increment a global variable "uwTick" used as
+  *         application time base.
   * @param  htim: TIM handle
   * @retval None
   */
