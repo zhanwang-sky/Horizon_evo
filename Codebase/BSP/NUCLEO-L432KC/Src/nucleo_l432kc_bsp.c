@@ -235,9 +235,9 @@ void BSP_TIM1_Init(void) {
 
     /* Configure the TIM peripheral */
     htim1.Instance = TIM1;
-    htim1.Init.Prescaler = BSP_DSHORT_TIMER_PRESCALER;
+    htim1.Init.Prescaler = BSP_TIM_DSHOT_PRESCALER;
     htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim1.Init.Period = BSP_DSHORT_TIMER_PERIOD - 1U;
+    htim1.Init.Period = BSP_TIM_DSHOT_PERIOD - 1U;
     htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim1.Init.RepetitionCounter = 0;
     htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -287,9 +287,9 @@ void BSP_TIM2_Init(void) {
 
     /* Configure the TIM peripheral */
     htim2.Instance = TIM2;
-    htim2.Init.Prescaler = BSP_DSHORT_TIMER_PRESCALER;
+    htim2.Init.Prescaler = BSP_TIM_DSHOT_PRESCALER;
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = BSP_DSHORT_TIMER_PERIOD - 1U;
+    htim2.Init.Period = BSP_TIM_DSHOT_PERIOD - 1U;
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim2.Init.RepetitionCounter = 0;
     htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -367,22 +367,5 @@ void HAL_Assert_Failed(void) {
     while(1);
 }
 #endif /* end of USE_FULL_ASSERT */
-
-/* Interrupt service routines ------------------------------------------------*/
-/**
-  * @brief  Period elapsed callback in non-blocking mode.
-  * @note   This function is called when TIM7 interrupt took place inside
-  *         HAL_TIM_IRQHandler(), or TIM1/TIM2 DMA complete callback.
-  *         In the case of TIM7 interrupt took place, it makes a direct call to
-  *         HAL_IncTick() to increment a global variable "uwTick" used as
-  *         application time base.
-  * @param  htim: TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-    if (TIM7 == htim->Instance) {
-        HAL_IncTick();
-    }
-}
 
 /******************************** END OF FILE *********************************/

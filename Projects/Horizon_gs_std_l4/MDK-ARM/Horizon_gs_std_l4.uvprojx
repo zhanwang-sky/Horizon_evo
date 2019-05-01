@@ -387,16 +387,6 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\Application\main.c</FilePath>
             </File>
-            <File>
-              <FileName>bmp280.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\BOSCH\BMP280_driver\bmp280.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf24l01.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\NORDIC\nRF24L01\nrf24l01.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>

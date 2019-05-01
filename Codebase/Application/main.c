@@ -29,12 +29,12 @@
 
 /* Definitions ---------------------------------------------------------------*/
 #define PSEUDO_SHELL_UART_FD 0
-#define PSEUDO_SHELL_BUF_LEN 122 // \r\n
+#define PSEUDO_SHELL_BUFF_LEN 123 // \r\n\0
 
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blinker;
-char pseudoShellBuf[PSEUDO_SHELL_BUF_LEN];
-volatile unsigned int pseudoShellLine = 0;
+char pseudoShellBuff[PSEUDO_SHELL_BUFF_LEN];
+volatile char pseudoShellCmdBuff[2] = { '\0', '\n' };
 SemaphoreHandle_t pseudoShellLineReady;
 
 /* Functions -----------------------------------------------------------------*/
@@ -49,24 +49,37 @@ void tPseudoShell(void *pvParameters) {
     uint8_t data;
 
     /* initialize... */
-    len = snprintf(pseudoShellBuf, sizeof(pseudoShellBuf), "\033c\033[2JInitializing...\r\n");
-    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuf, len);
+    len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "\033c\033[2JInitializing...\r\n");
+    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
     vTaskDelay(pdMS_TO_TICKS(100));
 
     // I2C test
     if (al_i2c_read(0, 0xD0, 0x75, &data, 1) < 0) {
-        len = snprintf(pseudoShellBuf, sizeof(pseudoShellBuf), "I2C bus error!\r\n");
+        len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "I2C bus error!\r\n");
     } else {
-        len = snprintf(pseudoShellBuf, sizeof(pseudoShellBuf), "data = 0x%X\r\n", data);
+        len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "data = 0x%X\r\n", data);
     }
-    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuf, len);
+    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
+
+#if defined(HORIZON_MINI_L4)
+    // dshort test
+    len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "motors will start in 10s, get ready!\r\n");
+    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
+    vTaskDelay(pdMS_TO_TICKS(10000));
+    al_tim_dshot_set(0, 200);
+#endif
 
     al_uart_start_receiving(PSEUDO_SHELL_UART_FD);
     while (1) {
         xSemaphoreTake(pseudoShellLineReady, portMAX_DELAY);
-        al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuf, pseudoShellLine);
-        pseudoShellLine = 0;
-        al_uart_start_receiving(PSEUDO_SHELL_UART_FD);
+        if (pseudoShellCmdBuff[0] == '\n') {
+            // ignore LF
+            continue;
+        } else if (pseudoShellCmdBuff[0] == '\r') {
+            al_uart_write(PSEUDO_SHELL_UART_FD, (void *) pseudoShellCmdBuff, 2);
+        } else {
+            al_uart_write(PSEUDO_SHELL_UART_FD, (void *) pseudoShellCmdBuff, 1);
+        }
     }
 }
 
@@ -78,6 +91,9 @@ int main(void) {
     al_uart_init();
     al_i2c_init();
     al_spi_init();
+#if defined(HORIZON_MINI_L4)
+    al_tim_dshot_init();
+#endif
 
     /* Create semaphores */
     pseudoShellLineReady = xSemaphoreCreateBinary();
@@ -96,7 +112,7 @@ int main(void) {
                 "tPseudoShell",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                tskIDLE_PRIORITY + 2U,
+                tskIDLE_PRIORITY + 1,
                 NULL);
 
     /* Start the scheduler. */
@@ -113,16 +129,8 @@ int main(void) {
 
 void al_uart_0_callback(int state, unsigned char data, int *brk) {
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        if (state < 0) {
-            data = '?';
-        }
-        pseudoShellBuf[pseudoShellLine++] = data;
-        if ((pseudoShellLine >= (PSEUDO_SHELL_BUF_LEN - 2))
-            || (data == '\n' || data == '\r')
-            || (state < 0)) {
-            pseudoShellBuf[pseudoShellLine++] = '\r';
-            pseudoShellBuf[pseudoShellLine++] = '\n';
-            *brk = 1;
+        if (!state) {
+            pseudoShellCmdBuff[0] = data;
             xSemaphoreGiveFromISR(pseudoShellLineReady, NULL);
         }
     }

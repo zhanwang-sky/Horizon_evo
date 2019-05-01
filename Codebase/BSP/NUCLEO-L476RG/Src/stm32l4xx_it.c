@@ -264,6 +264,7 @@ void EXTI15_10_IRQHandler(void) {
   */
 void TIM7_IRQHandler(void) {
     HAL_TIM_IRQHandler(&htim7);
+    HAL_IncTick();
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

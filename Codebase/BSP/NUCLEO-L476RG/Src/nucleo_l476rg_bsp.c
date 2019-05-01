@@ -285,20 +285,4 @@ void HAL_Assert_Failed(void) {
 }
 #endif /* end of USE_FULL_ASSERT */
 
-/* Interrupt service routines ------------------------------------------------*/
-/**
-  * @brief  Period elapsed callback in non-blocking mode.
-  * @note   This function is called when TIM7 interrupt took place, inside
-  *         HAL_TIM_IRQHandler().
-  *         It makes a direct call to HAL_IncTick() to increment a global
-  *         variable "uwTick" used as application time base.
-  * @param  htim: TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-    if (TIM7 == htim->Instance) {
-        HAL_IncTick();
-    }
-}
-
 /******************************** END OF FILE *********************************/

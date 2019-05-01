@@ -29,6 +29,9 @@ int al_spi_init(void);
 int al_spi_write(int fd, int subfd, const void *buf, unsigned int nbytes);
 int al_spi_read(int fd, int subfd, void *buf, unsigned int nbytes);
 int al_spi_write_read(int fd, int subfd, const void *txbuf, void *rxbuf, unsigned int nbytes);
+/* timer */
+int al_tim_dshot_init(void);
+int al_tim_dshot_set(int fd, unsigned int value);
 
 #endif /* __AL_STM32L4XX_H */
 

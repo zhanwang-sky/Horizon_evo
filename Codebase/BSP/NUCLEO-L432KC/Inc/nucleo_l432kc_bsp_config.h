@@ -21,22 +21,26 @@
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_SPIs (1)
 #define BSP_NR_SPI_NSS (1)
+#define BSP_NR_DSHOT_CHANNELs (6)
+#define BSP_NR_DSHOT_TIMERs (2)
 
-#define BSP_SYSTEM_CORE_CLOCK (80000000U)
-#define BSP_UART_BAUD_RATE (9600U)
+#define BSP_SYSTEM_CORE_CLOCK (80000000)
+#define BSP_UART_BAUD_RATE (9600)
 #define BSP_I2C_TIMING (0x00702991)
 #define BSP_SPI_PRESCALER SPI_BAUDRATEPRESCALER_16
-#define BSP_DSHORT_TARGET_CNT_CLK (2000U)
-#define BSP_DSHORT_TIMER_PRESCALER (BSP_SYSTEM_CORE_CLOCK / BSP_DSHORT_TARGET_CNT_CLK - 1U)
-#define BSP_DSHORT_TARGET_FRQ (1U)
-#define BSP_DSHORT_TIMER_PERIOD (BSP_DSHORT_TARGET_CNT_CLK / BSP_DSHORT_TARGET_FRQ)
+#define BSP_TIM_DSHOT_CNT_CLK (1500000)
+#define BSP_TIM_DSHOT_PRESCALER (BSP_SYSTEM_CORE_CLOCK / BSP_TIM_DSHOT_CNT_CLK - 1U)
+#define BSP_TIM_DSHOT_BAUD_RATE (150000)
+#define BSP_TIM_DSHOT_PERIOD (BSP_TIM_DSHOT_CNT_CLK / BSP_TIM_DSHOT_BAUD_RATE)
+#define BSP_TIM_DSHOT_CODE0 (BSP_TIM_DSHOT_PERIOD * 3 / 10)
+#define BSP_TIM_DSHOT_CODE1 (BSP_TIM_DSHOT_PERIOD * 7 / 10)
 
 /* Macros --------------------------------------------------------------------*/
 #define BSP_GPIO_FD2PORTPIN(FD, PORT, PIN) \
 do { \
     /* PB3(LD3 [Green]) */ \
-    (PORT) = GPIOB; \
-    (PIN) = GPIO_PIN_3; \
+    PORT = GPIOB; \
+    PIN = GPIO_PIN_3; \
 } while (0)
 
 #define BSP_EXTI_PIN2IDX(PIN, INDEX) \
@@ -44,62 +48,120 @@ do { \
     switch (PIN) { \
     case GPIO_PIN_1: \
         /* PB1(MPU_INT) */ \
-        (INDEX) = 0; \
+        INDEX = 0; \
         break; \
     default: \
-        (INDEX) = -1; \
+        INDEX = -1; \
     } \
 } while (0)
 
 #define BSP_UART_FD2IDXHDL(FD, INDEX, HUART) \
 do { \
-    (INDEX) = 0; \
-    (HUART) = &huart2; \
+    INDEX = 0; \
+    HUART = &huart2; \
 } while (0)
 
 #define BSP_UART_HDL2IDX(HUART, INDEX) \
 do { \
-    (INDEX) = 0; \
+    INDEX = 0; \
 } while (0)
 
 #define BSP_I2C_FD2IDXHDL(FD, INDEX, HI2C) \
 do { \
-    (INDEX) = 0; \
-    (HI2C) = &hi2c1; \
+    INDEX = 0; \
+    HI2C = &hi2c1; \
 } while (0)
 
 #define BSP_I2C_HDL2IDX(HI2C, INDEX) \
 do { \
-    (INDEX) = 0; \
+    INDEX = 0; \
 } while (0)
 
 #define BSP_SPI_FD2IDXHDL(FD, INDEX, HSPI) \
 do { \
-    (INDEX) = 0; \
-    (HSPI) = &hspi1; \
+    INDEX = 0; \
+    HSPI = &hspi1; \
 } while (0)
 
 #define BSP_SPI_SUBFD2PORTPIN(SUBFD, PORT, PIN) \
 do { \
-    (PORT) = GPIOA; \
-    (PIN) = GPIO_PIN_4; \
+    PORT = GPIOA; \
+    PIN = GPIO_PIN_4; \
 } while (0)
 
 #define BSP_SPI_HDL2IDX(HSPI, INDEX) \
 do { \
-    (INDEX) = 0; \
+    INDEX = 0; \
 } while (0)
 
 #define BSP_SPI_HDL2PORTPIN(HSPI, PORT, PIN) \
 do { \
-    (PORT) = GPIOA; \
-    (PIN) = GPIO_PIN_4; \
+    PORT = GPIOA; \
+    PIN = GPIO_PIN_4; \
+} while (0)
+
+#define BSP_TIM_IS_DSHORT_TIMER(HTIM) \
+    ((TIM1 == HTIM->Instance || TIM2 == HTIM->Instance) ? 1 : 0)
+
+#define BSP_TIM_DSHORT_HDL2DMAPARAMS(HTIM, TIMID, BASE, OFFSET, LEN) \
+do { \
+    if (TIM1 == HTIM->Instance) { \
+        TIMID = 0; \
+        BASE = TIM_DMABASE_CCR1; \
+        OFFSET = 0; \
+        LEN = TIM_DMABURSTLENGTH_3TRANSFERS; \
+    } else { \
+        TIMID = 1; \
+        BASE = TIM_DMABASE_CCR2; \
+        OFFSET = 18 * 3; \
+        LEN = TIM_DMABURSTLENGTH_3TRANSFERS; \
+    } \
+} while (0)
+
+#define BSP_TIM_DSHORT_TIMID2DMAPARAMS(INDEX, HTIM, BASE, OFFSET, LEN) \
+do { \
+    if (0 == (INDEX)) { \
+        HTIM = &htim1; \
+        BASE = TIM_DMABASE_CCR1; \
+        OFFSET = 0; \
+        LEN = TIM_DMABURSTLENGTH_3TRANSFERS; \
+    } else { \
+        HTIM = &htim2; \
+        BASE = TIM_DMABASE_CCR2; \
+        OFFSET = 18 * 3; \
+        LEN = TIM_DMABURSTLENGTH_3TRANSFERS; \
+    } \
+} while (0)
+
+#define BSP_TIM_DSHORT_CHID2TIMID(CHID, TIMID) \
+do { \
+    if ((CHID) < 3) { \
+        TIMID = 0; \
+    } else { \
+        TIMID = 1; \
+    } \
+} while (0)
+
+#define BSP_TIM_DSHORT_CHID2IDINTIM(CHID, IDINTIM) \
+do { \
+    if ((CHID) < 3) { \
+        IDINTIM = (CHID); \
+    } else { \
+        IDINTIM = (CHID) - 3; \
+    } \
+} while (0)
+
+#define BSP_TIM_DSHORT_CHID2NRCHS(CHID, NRCHS) \
+do { \
+    NRCHS = 3; \
 } while (0)
 
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart2;
 extern I2C_HandleTypeDef hi2c1;
 extern SPI_HandleTypeDef hspi1;
+extern TIM_HandleTypeDef htim1;
+extern TIM_HandleTypeDef htim2;
 
 #endif /* __NUCLEO_L432KC_BSP_CONFIG_H */
 

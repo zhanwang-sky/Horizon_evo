@@ -387,21 +387,6 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\Application\main.c</FilePath>
             </File>
-            <File>
-              <FileName>inv_mpu.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\inv\inv_mpu.c</FilePath>
-            </File>
-            <File>
-              <FileName>MadgwickAHRS.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\imu\MadgwickAHRS.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf24l01.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\NORDIC\nRF24L01\nrf24l01.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -416,6 +401,11 @@
               <FileName>al_stm32l4xx_spi.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_spi.c</FilePath>
+            </File>
+            <File>
+              <FileName>al_stm32l4xx_tim_dshot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_tim_dshot.c</FilePath>
             </File>
             <File>
               <FileName>al_stm32l4xx_uart.c</FileName>

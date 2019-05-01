@@ -158,6 +158,7 @@ void SysTick_Handler(void) {
   */
 void TIM7_IRQHandler(void) {
     HAL_TIM_IRQHandler(&htim7);
+    HAL_IncTick();
 }
 
 /**
