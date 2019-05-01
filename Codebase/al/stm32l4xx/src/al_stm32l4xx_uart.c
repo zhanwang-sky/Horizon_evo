@@ -83,16 +83,18 @@ int al_uart_start_receiving(int fd) {
 
     BSP_UART_FD2IDXHDL(fd, index, huart);
 
+    // TODO: Mutex
+
     rc = HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
     /* It's okay if receiving is already in progress. */
-    if (rc != HAL_OK || rc != HAL_BUSY) {
+    if (rc != HAL_OK && rc != HAL_BUSY) {
         return -1;
     }
 
     return 0;
 }
 
-__weak void al_uart_0_callback(int state, unsigned char data, int *brk) {
+__weak void al_uart_0_recv_callback(unsigned char data, int err, int *brk) {
     return;
 }
 
@@ -122,9 +124,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
     BSP_UART_HDL2IDX(huart, index);
     if (0 == index) {
-        al_uart_0_callback(0, _al_uart_rxBuf[index], &brk);
+        al_uart_0_recv_callback(_al_uart_rxBuf[index], 0, &brk);
     }
-    if (0 == brk) {
+    if (!brk) {
         HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
     }
 }
@@ -136,25 +138,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     int index;
-    int brk = 0;
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_UART_HDL2IDX(huart, index);
         /* Only DMA error may cause Tx fail */
         if ((huart->ErrorCode & HAL_UART_ERROR_DMA) != 0) {
-            huart->ErrorCode = HAL_UART_ERROR_NONE;
+            huart->ErrorCode = HAL_UART_ERROR_NONE; // TODO: is it necessary?
             _al_uart_txErr[index] = 1;
             xSemaphoreGiveFromISR(_al_uart_txCpltSem[index], NULL);
         } else {
             /* DMA error and Rx error should not occur simultaneously,
                so, if not a DMA error, it must be an Rx error. */
             if (0 == index) {
-                al_uart_0_callback(-1, 0, &brk);
+                al_uart_0_recv_callback(0, 1, NULL);
             }
-            if (0 == brk) {
-                /* This will reset huart->ErrorCode */
-                HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
-            }
+            // TODO: abort receiving?
         }
     }
 }

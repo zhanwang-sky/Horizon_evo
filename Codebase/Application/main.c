@@ -127,9 +127,9 @@ int main(void) {
     while(1);
 }
 
-void al_uart_0_callback(int state, unsigned char data, int *brk) {
+void al_uart_0_recv_callback(unsigned char data, int err, int *brk) {
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        if (!state) {
+        if (!err) {
             pseudoShellCmdBuff[0] = data;
             xSemaphoreGiveFromISR(pseudoShellLineReady, NULL);
         }
