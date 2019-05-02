@@ -20,8 +20,9 @@
 #include <string.h>
 
 /* Private define ------------------------------------------------------------*/
-#define _AL_TIM_DSHOT_MIN_THR 48
-#define _AL_TIM_DSHOT_MAX_THR 2047
+#define _AL_TIM_DSHOT_MIN_THR (48)
+#define _AL_TIM_DSHOT_MAX_THR (2047)
+#define _AL_TIM_DSHOT_INIT_PATTERN (0x606)
 
 /* Private variables ---------------------------------------------------------*/
 static uint32_t _al_tim_dshot_burst_buffer[3][BSP_NR_DSHOT_CHANNELs * 18] = { 0 };
@@ -60,8 +61,8 @@ void _al_tim_dshot_update_buffer(int buff_id, int ch_id, uint16_t pattern) {
     int id_in_tim;
     int nr_chs;
 
-    BSP_TIM_DSHORT_CHID2IDINTIM(ch_id, id_in_tim);
-    BSP_TIM_DSHORT_CHID2NRCHS(ch_id, nr_chs);
+    BSP_TIM_DSHOT_CHID2IDINTIM(ch_id, id_in_tim);
+    BSP_TIM_DSHOT_CHID2NRCHS(ch_id, nr_chs);
     for (int bit = 0; bit < 16; bit++) {
         _al_tim_dshot_burst_buffer[buff_id][(ch_id - id_in_tim) * 18 + bit * nr_chs + id_in_tim]
             = ((pattern << bit) & 0x8000) ? BSP_TIM_DSHOT_CODE1 : BSP_TIM_DSHOT_CODE0;
@@ -76,8 +77,8 @@ void _al_tim_dshot_copy_buffer(int ch_id, int from_buff, int to_buff) {
     size_t offset;
     size_t length;
 
-    BSP_TIM_DSHORT_CHID2IDINTIM(ch_id, id_in_tim);
-    BSP_TIM_DSHORT_CHID2NRCHS(ch_id, nr_chs);
+    BSP_TIM_DSHOT_CHID2IDINTIM(ch_id, id_in_tim);
+    BSP_TIM_DSHOT_CHID2NRCHS(ch_id, nr_chs);
     offset = (ch_id - id_in_tim) * 18;
     length = nr_chs * 18;
     memcpy(_al_tim_dshot_burst_buffer[to_buff] + offset, _al_tim_dshot_burst_buffer[from_buff] + offset, length * sizeof(uint32_t));
@@ -92,11 +93,11 @@ int al_tim_dshot_init(void) {
     uint32_t burstLength;
 
     for (int ch_id = 0; ch_id < BSP_NR_DSHOT_CHANNELs; ch_id++) {
-        _al_tim_dshot_update_buffer(0, ch_id, 0x606);
+        _al_tim_dshot_update_buffer(0, ch_id, _AL_TIM_DSHOT_INIT_PATTERN);
     }
 
     for (int tim_id = 0; tim_id < BSP_NR_DSHOT_TIMERs; tim_id++) {
-        BSP_TIM_DSHORT_TIMID2DMAPARAMS(tim_id, htim, burstBaseAddress, offset, burstLength);
+        BSP_TIM_DSHOT_TIMID2DMAPARAMS(tim_id, htim, burstBaseAddress, offset, burstLength);
         HAL_TIM_DMABurst_WriteStart(htim, burstBaseAddress, TIM_DMA_UPDATE, _al_tim_dshot_burst_buffer[0] + offset, burstLength, 18);
     }
 
@@ -118,7 +119,7 @@ int al_tim_dshot_set(int fd, unsigned int value) {
 
     // TODO: Mutex
 
-    BSP_TIM_DSHORT_CHID2TIMID(fd, tim_id);
+    BSP_TIM_DSHOT_CHID2TIMID(fd, tim_id);
     new_buff_id = _al_tim_dshot_cal_new_buff_id(_al_tim_dshot_task_buff_id[tim_id], _al_tim_dshot_isr_buff_id[tim_id]);
     _al_tim_dshot_copy_buffer(fd, _al_tim_dshot_task_buff_id[tim_id], new_buff_id);
     _al_tim_dshot_update_buffer(new_buff_id, fd, pattern);
@@ -144,8 +145,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     uint32_t offset;
     uint32_t burstLength;
 
-    if (BSP_TIM_IS_DSHORT_TIMER(htim)) {
-        BSP_TIM_DSHORT_HDL2DMAPARAMS(htim, tim_id, burstBaseAddress, offset, burstLength);
+    if (BSP_TIM_IS_DSHOT_TIMER(htim)) {
+        BSP_TIM_DSHOT_HDL2DMAPARAMS(htim, tim_id, burstBaseAddress, offset, burstLength);
         HAL_TIM_DMABurst_WriteStart(htim, burstBaseAddress, TIM_DMA_UPDATE, _al_tim_dshot_burst_buffer[_al_tim_dshot_task_buff_id[tim_id]] + offset, burstLength, 18);
         _al_tim_dshot_isr_buff_id[tim_id] = _al_tim_dshot_task_buff_id[tim_id];
     }

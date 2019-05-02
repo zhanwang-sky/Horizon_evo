@@ -62,7 +62,7 @@ void tPseudoShell(void *pvParameters) {
     al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
 
 #if defined(HORIZON_MINI_L4)
-    // dshort test
+    // dshot test
     len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "motors will start in 10s, get ready!\r\n");
     al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
     vTaskDelay(pdMS_TO_TICKS(10000));
