@@ -9,6 +9,11 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <string.h>
+
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 #if defined(HORIZON_MINI_L4)
 #include "nucleo_l432kc_bsp_config.h"
 #elif defined(HORIZON_STD_L4) || defined(HORIZON_GS_STD_L4)
@@ -17,14 +22,13 @@
 #error please specify a target board
 #endif
 
-#include <string.h>
-
 /* Private define ------------------------------------------------------------*/
 #define _AL_TIM_DSHOT_MIN_THR (48)
 #define _AL_TIM_DSHOT_MAX_THR (2047)
 #define _AL_TIM_DSHOT_INIT_PATTERN (0x606)
 
 /* Private variables ---------------------------------------------------------*/
+static SemaphoreHandle_t _al_tim_dshot_mutex = NULL;
 static uint32_t _al_tim_dshot_burst_buffer[3][BSP_NR_DSHOT_CHANNELs * 18] = { 0 };
 static volatile int _al_tim_dshot_task_buff_id[BSP_NR_DSHOT_TIMERs] = { 0 };
 static volatile int _al_tim_dshot_isr_buff_id[BSP_NR_DSHOT_TIMERs] = { 0 };
@@ -92,6 +96,11 @@ int al_tim_dshot_init(void) {
     uint32_t offset;
     uint32_t burstLength;
 
+    _al_tim_dshot_mutex = xSemaphoreCreateMutex();
+    if (NULL == _al_tim_dshot_mutex) {
+        return -1;
+    }
+
     for (int ch_id = 0; ch_id < BSP_NR_DSHOT_CHANNELs; ch_id++) {
         _al_tim_dshot_update_buffer(0, ch_id, _AL_TIM_DSHOT_INIT_PATTERN);
     }
@@ -117,13 +126,62 @@ int al_tim_dshot_set(int fd, unsigned int value) {
     // make pattern
     pattern = _al_tim_dshot_make_pattern(value);
 
-    // TODO: Mutex
+    // thread safe
+    do {
+        xSemaphoreTake(_al_tim_dshot_mutex, portMAX_DELAY);
 
-    BSP_TIM_DSHOT_CHID2TIMID(fd, tim_id);
-    new_buff_id = _al_tim_dshot_cal_new_buff_id(_al_tim_dshot_task_buff_id[tim_id], _al_tim_dshot_isr_buff_id[tim_id]);
-    _al_tim_dshot_copy_buffer(fd, _al_tim_dshot_task_buff_id[tim_id], new_buff_id);
-    _al_tim_dshot_update_buffer(new_buff_id, fd, pattern);
-    _al_tim_dshot_task_buff_id[tim_id] = new_buff_id;
+        BSP_TIM_DSHOT_CHID2TIMID(fd, tim_id);
+        new_buff_id = _al_tim_dshot_cal_new_buff_id(_al_tim_dshot_task_buff_id[tim_id], _al_tim_dshot_isr_buff_id[tim_id]);
+        _al_tim_dshot_copy_buffer(fd, _al_tim_dshot_task_buff_id[tim_id], new_buff_id);
+        _al_tim_dshot_update_buffer(new_buff_id, fd, pattern);
+        _al_tim_dshot_task_buff_id[tim_id] = new_buff_id;
+
+        xSemaphoreGive(_al_tim_dshot_mutex);
+    } while (0);
+
+    return 0;
+}
+
+int al_tim_dshot_set4(unsigned int values[4]) {
+    int ch_id;
+    int prev_tim_id, curr_tim_id;
+    int new_buff_id;
+    uint16_t patterns[4];
+
+    for (ch_id = 0; ch_id < 4; ch_id++) {
+        if (values[ch_id] > _AL_TIM_DSHOT_MAX_THR - _AL_TIM_DSHOT_MIN_THR) {
+            return -1;
+        }
+        patterns[ch_id] = _al_tim_dshot_make_pattern(values[ch_id]);
+    }
+
+    // thread safe
+    do {
+        xSemaphoreTake(_al_tim_dshot_mutex, portMAX_DELAY);
+
+        ch_id = 0;
+        BSP_TIM_DSHOT_CHID2TIMID(ch_id, prev_tim_id);
+        new_buff_id = _al_tim_dshot_cal_new_buff_id(_al_tim_dshot_task_buff_id[prev_tim_id], _al_tim_dshot_isr_buff_id[prev_tim_id]);
+        _al_tim_dshot_copy_buffer(ch_id, _al_tim_dshot_task_buff_id[prev_tim_id], new_buff_id);
+        for (; ch_id < 4; ch_id++) {
+            BSP_TIM_DSHOT_CHID2TIMID(ch_id, curr_tim_id);
+            if (curr_tim_id != prev_tim_id) {
+                // apply changes
+                _al_tim_dshot_task_buff_id[prev_tim_id] = new_buff_id;
+                // calculate new-buffer-id for curr_tim
+                new_buff_id = _al_tim_dshot_cal_new_buff_id(_al_tim_dshot_task_buff_id[curr_tim_id], _al_tim_dshot_isr_buff_id[curr_tim_id]);
+                // copy content to the new-buffer
+                _al_tim_dshot_copy_buffer(ch_id, _al_tim_dshot_task_buff_id[curr_tim_id], new_buff_id);
+                // record curr_tim
+                prev_tim_id = curr_tim_id;
+            }
+            _al_tim_dshot_update_buffer(new_buff_id, ch_id, patterns[ch_id]);
+        }
+        // apply changes
+        _al_tim_dshot_task_buff_id[curr_tim_id] = new_buff_id;
+
+        xSemaphoreGive(_al_tim_dshot_mutex);
+    } while (0);
 
     return 0;
 }
