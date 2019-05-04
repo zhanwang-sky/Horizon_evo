@@ -281,9 +281,8 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim) {
 
         /* TIM2 GPIO Configuration
            PA1 -> TIM2_CH2
-           PA3 -> TIM2_CH4
         */
-        GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_3;
+        GPIO_InitStruct.Pin = GPIO_PIN_1;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

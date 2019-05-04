@@ -21,7 +21,7 @@
 #define BSP_NR_I2Cs (1)
 #define BSP_NR_SPIs (1)
 #define BSP_NR_SPI_NSS (1)
-#define BSP_NR_DSHOT_CHANNELs (6)
+#define BSP_NR_DSHOT_CHANNELs (4)
 #define BSP_NR_DSHOT_TIMERs (2)
 
 #define BSP_TARGET_SYSCLK (72000000)
@@ -120,7 +120,7 @@ do { \
         TIMID = 1; \
         BASE = TIM_DMABASE_CCR2; \
         OFFSET = 18 * 3; \
-        LEN = TIM_DMABURSTLENGTH_3TRANSFERS; \
+        LEN = TIM_DMABURSTLENGTH_1TRANSFER; \
     } \
 } while (0)
 
@@ -135,7 +135,7 @@ do { \
         HTIM = &htim2; \
         BASE = TIM_DMABASE_CCR2; \
         OFFSET = 18 * 3; \
-        LEN = TIM_DMABURSTLENGTH_3TRANSFERS; \
+        LEN = TIM_DMABURSTLENGTH_1TRANSFER; \
     } \
 } while (0)
 
@@ -159,7 +159,11 @@ do { \
 
 #define BSP_TIM_DSHOT_CHID2NRCHS(CHID, NRCHS) \
 do { \
-    NRCHS = 3; \
+    if ((CHID) < 3) { \
+        NRCHS = 3; \
+    } else { \
+        NRCHS = 1; \
+    } \
 } while (0)
 
 /* External variables --------------------------------------------------------*/
