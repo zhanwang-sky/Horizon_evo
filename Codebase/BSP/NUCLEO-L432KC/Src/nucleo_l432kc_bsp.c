@@ -105,12 +105,12 @@ static void BSP_GPIO_Init(void) {
     /* GPIO Ports Clock Enable */
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
 
     /* GPIOA configuration */
     /* Configure GPIO pin Output Level */
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-    /* Configure GPIO pin: PA4(SPI1_CS) */
+    /* Configure GPIO pin: PA4(NSS1/D3/A0) */
     GPIO_InitStruct.Pin = GPIO_PIN_4;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -132,11 +132,19 @@ static void BSP_GPIO_Init(void) {
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+    /* GPIOC configuration */
+    /* Configure GPIO pin Output Level */
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+    /* Configure GIPI pin: PC15(NSS0/D2) */
+    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
     /* EXTI interrupt init*/
     HAL_NVIC_SetPriority(EXTI1_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
     HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-    HAL_NVIC_SetPriority(EXTI3_IRQn, SYSTICK_INT_PRIORITY - 1U, 0);
-    HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 }
 
 void BSP_DMA_Init(void) {

@@ -33,7 +33,7 @@
 
 #define BSP_UART_BAUD_RATE (9600)
 #define BSP_I2C_TIMING (0x00702681)
-#define BSP_SPI_PRESCALER SPI_BAUDRATEPRESCALER_16
+#define BSP_SPI_PRESCALER SPI_BAUDRATEPRESCALER_128
 #define BSP_TIM_DSHOT_CNT_CLK (1500000)
 #define BSP_TIM_DSHOT_PRESCALER (BSP_TARGET_SYSCLK / BSP_TIM_DSHOT_CNT_CLK - 1)
 #define BSP_TIM_DSHOT_BAUD_RATE (150000)
@@ -83,6 +83,9 @@ do { \
     INDEX = 0; \
 } while (0)
 
+#define BSP_SPI_IS_VALID_FD(FD, SUBFD) \
+    ((FD) >= 0 && (FD) < BSP_NR_SPIs && (SUBFD) >= 0 && (SUBFD) < BSP_NR_SPI_NSS)
+
 #define BSP_SPI_FD2IDXHDL(FD, INDEX, HSPI) \
 do { \
     INDEX = 0; \
@@ -91,19 +94,18 @@ do { \
 
 #define BSP_SPI_SUBFD2PORTPIN(SUBFD, PORT, PIN) \
 do { \
-    PORT = GPIOA; \
-    PIN = GPIO_PIN_4; \
+    if ((SUBFD) == 0) { \
+        PORT = GPIOC; \
+        PIN = GPIO_PIN_15; \
+    } else { \
+        PORT = GPIOA; \
+        PIN = GPIO_PIN_4; \
+    } \
 } while (0)
 
 #define BSP_SPI_HDL2IDX(HSPI, INDEX) \
 do { \
     INDEX = 0; \
-} while (0)
-
-#define BSP_SPI_HDL2PORTPIN(HSPI, PORT, PIN) \
-do { \
-    PORT = GPIOA; \
-    PIN = GPIO_PIN_4; \
 } while (0)
 
 #define BSP_TIM_IS_DSHOT_TIMER(HTIM) \

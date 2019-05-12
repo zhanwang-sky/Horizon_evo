@@ -9,6 +9,12 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include <string.h>
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
 #if defined(HORIZON_MINI_L4)
 #include "nucleo_l432kc_bsp_config.h"
 #elif defined(HORIZON_STD_L4) || defined(HORIZON_GS_STD_L4)
@@ -17,17 +23,15 @@
 #error please specify a target board
 #endif
 
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
-
-#include <string.h>
-
 /* Private typedef -----------------------------------------------------------*/
-typedef struct _al_spi_params {
-    int index;
+typedef struct _al_spi_nss {
     GPIO_TypeDef *port;
     uint16_t pin;
+} _al_spi_nss_t;
+
+typedef struct _al_spi_params {
+    int index;
+    _al_spi_nss_t nss;
     SPI_HandleTypeDef *hspi;
     uint8_t *txbuf;
     uint8_t *rxbuf;
@@ -37,6 +41,7 @@ typedef struct _al_spi_params {
 /* Private variables ---------------------------------------------------------*/
 static SemaphoreHandle_t _al_spi_mutex[BSP_NR_SPIs] = { NULL };
 static SemaphoreHandle_t _al_spi_cpltSem[BSP_NR_SPIs] = { NULL };
+static volatile _al_spi_nss_t _al_spi_nss_info[BSP_NR_SPIs];
 
 /* Functions -----------------------------------------------------------------*/
 int al_spi_init(void) {
@@ -58,9 +63,12 @@ int _al_spi_xfer(_al_spi_params_t *params) {
 
     xSemaphoreTake(_al_spi_mutex[params->index], portMAX_DELAY);
 
+    _al_spi_nss_info[params->index].port = params->nss.port;
+    _al_spi_nss_info[params->index].pin = params->nss.pin;
+
     /* ---------- enter critical area ---------- */
     taskENTER_CRITICAL();
-    HAL_GPIO_WritePin(params->port, params->pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(params->nss.port, params->nss.pin, GPIO_PIN_RESET);
     if (params->txbuf != NULL && params->rxbuf != NULL) {
         hal_rc = HAL_SPI_TransmitReceive_DMA(params->hspi,
                                              params->txbuf,
@@ -76,7 +84,7 @@ int _al_spi_xfer(_al_spi_params_t *params) {
                                      params->nbytes);
     }
     if (hal_rc != HAL_OK) {
-        HAL_GPIO_WritePin(params->port, params->pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(params->nss.port, params->nss.pin, GPIO_PIN_SET);
         rc = -1;
     }
     taskEXIT_CRITICAL();
@@ -100,8 +108,7 @@ EXIT:
 int al_spi_write(int fd, int subfd, const void *buf, unsigned int nbytes) {
     _al_spi_params_t params;
 
-    if ((fd < 0 || fd >= BSP_NR_SPIs)
-        || (subfd < 0 || subfd >= BSP_NR_SPI_NSS)
+    if (!BSP_SPI_IS_VALID_FD(fd, subfd)
         || (NULL == buf)
         || (0 == nbytes || nbytes > 0xFFFF)) {
         return -1;
@@ -109,7 +116,7 @@ int al_spi_write(int fd, int subfd, const void *buf, unsigned int nbytes) {
 
     memset(&params, 0, sizeof(params));
     BSP_SPI_FD2IDXHDL(fd, params.index, params.hspi);
-    BSP_SPI_SUBFD2PORTPIN(subfd, params.port, params.pin);
+    BSP_SPI_SUBFD2PORTPIN(subfd, params.nss.port, params.nss.pin);
     params.txbuf = (uint8_t *) buf;
     params.rxbuf = NULL;
     params.nbytes = nbytes;
@@ -120,8 +127,7 @@ int al_spi_write(int fd, int subfd, const void *buf, unsigned int nbytes) {
 int al_spi_read(int fd, int subfd, void *buf, unsigned int nbytes) {
     _al_spi_params_t params;
 
-    if ((fd < 0 || fd >= BSP_NR_SPIs)
-        || (subfd < 0 || subfd >= BSP_NR_SPI_NSS)
+    if (!BSP_SPI_IS_VALID_FD(fd, subfd)
         || (NULL == buf)
         || (0 == nbytes || nbytes > 0xFFFF)) {
         return -1;
@@ -129,7 +135,7 @@ int al_spi_read(int fd, int subfd, void *buf, unsigned int nbytes) {
 
     memset(&params, 0, sizeof(params));
     BSP_SPI_FD2IDXHDL(fd, params.index, params.hspi);
-    BSP_SPI_SUBFD2PORTPIN(subfd, params.port, params.pin);
+    BSP_SPI_SUBFD2PORTPIN(subfd, params.nss.port, params.nss.pin);
     params.txbuf = NULL;
     params.rxbuf = (uint8_t *) buf;
     params.nbytes = nbytes;
@@ -140,8 +146,7 @@ int al_spi_read(int fd, int subfd, void *buf, unsigned int nbytes) {
 int al_spi_write_read(int fd, int subfd, const void *txbuf, void *rxbuf, unsigned int nbytes) {
     _al_spi_params_t params;
 
-    if ((fd < 0 || fd >= BSP_NR_SPIs)
-        || (subfd < 0 || subfd >= BSP_NR_SPI_NSS)
+    if (!BSP_SPI_IS_VALID_FD(fd, subfd)
         || (NULL == txbuf)
         || (NULL == rxbuf)
         || (0 == nbytes || nbytes > 0xFFFF)) {
@@ -150,7 +155,7 @@ int al_spi_write_read(int fd, int subfd, const void *txbuf, void *rxbuf, unsigne
 
     memset(&params, 0, sizeof(params));
     BSP_SPI_FD2IDXHDL(fd, params.index, params.hspi);
-    BSP_SPI_SUBFD2PORTPIN(subfd, params.port, params.pin);
+    BSP_SPI_SUBFD2PORTPIN(subfd, params.nss.port, params.nss.pin);
     params.txbuf = (uint8_t *) txbuf;
     params.rxbuf = (uint8_t *) rxbuf;
     params.nbytes = nbytes;
@@ -160,14 +165,11 @@ int al_spi_write_read(int fd, int subfd, const void *txbuf, void *rxbuf, unsigne
 
 /* ISR callbacks -------------------------------------------------------------*/
 void _al_spi_xferCpltCallback(SPI_HandleTypeDef *hspi) {
-    GPIO_TypeDef *port;
-    uint16_t pin;
     int index;
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        BSP_SPI_HDL2PORTPIN(hspi, port, pin);
-        HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET);
         BSP_SPI_HDL2IDX(hspi, index);
+        HAL_GPIO_WritePin(_al_spi_nss_info[index].port, _al_spi_nss_info[index].pin, GPIO_PIN_SET);
         xSemaphoreGiveFromISR(_al_spi_cpltSem[index], NULL);
     }
 }
