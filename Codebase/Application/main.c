@@ -28,14 +28,16 @@
 #endif
 
 /* Definitions ---------------------------------------------------------------*/
-#define PSEUDO_SHELL_UART_FD 0
-#define PSEUDO_SHELL_BUFF_LEN 123 // \r\n\0
+#define TMP_BUF_LEN 5
 
 /* Private variables ---------------------------------------------------------*/
 TimerHandle_t xTimer_blinker;
-char pseudoShellBuff[PSEUDO_SHELL_BUFF_LEN];
-volatile char pseudoShellCmdBuff[2] = { '\0', '\n' };
-SemaphoreHandle_t pseudoShellLineReady;
+TimerHandle_t xTimer_DShot_Start;
+
+SemaphoreHandle_t xSem_com0_rx;
+SemaphoreHandle_t xSem_com1_rx;
+
+uint8_t tmp_buf[TMP_BUF_LEN] = { 0 };
 
 /* Functions -----------------------------------------------------------------*/
 /* Threads */
@@ -43,44 +45,26 @@ void tBlinker(TimerHandle_t xTimer) {
     al_gpio_toggle_pin(0);
 }
 
-void tPseudoShell(void *pvParameters) {
-    int len;
-    // I2C test
-    uint8_t data;
-
-    /* initialize... */
-    len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "\033c\033[2JInitializing...\r\n");
-    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    // I2C test
-    if (al_i2c_read(0, 0xD0, 0x75, &data, 1) < 0) {
-        len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "I2C bus error!\r\n");
-    } else {
-        len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "data = 0x%X\r\n", data);
-    }
-    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
-
-#if defined(HORIZON_MINI_L4)
-    // dshot test
-    len = snprintf(pseudoShellBuff, sizeof(pseudoShellBuff), "motors will start in 10s, get ready!\r\n");
-    al_uart_write(PSEUDO_SHELL_UART_FD, (uint8_t *) pseudoShellBuff, len);
-    vTaskDelay(pdMS_TO_TICKS(10000));
+void tDShot_Start(TimerHandle_t xTimer) {
     al_tim_dshot_set(0, 200);
-#endif
+    al_tim_dshot_set(3, 1024);
+    xTimerChangePeriod(xTimer_blinker, pdMS_TO_TICKS(100), 0);
+}
 
-    al_uart_start_receiving(PSEUDO_SHELL_UART_FD);
+void tCom0(void *pvParameters) {
+    al_uart_start_receiving(0);
     while (1) {
-        xSemaphoreTake(pseudoShellLineReady, portMAX_DELAY);
-        if (pseudoShellCmdBuff[0] == '\n') {
-            // ignore LF
-            continue;
-        } else if (pseudoShellCmdBuff[0] == '\r') {
-            al_uart_write(PSEUDO_SHELL_UART_FD, (void *) pseudoShellCmdBuff, 2);
-        } else {
-            al_uart_write(PSEUDO_SHELL_UART_FD, (void *) pseudoShellCmdBuff, 1);
-        }
+        xSemaphoreTake(xSem_com1_rx, portMAX_DELAY);
+        al_uart_write(0, tmp_buf, TMP_BUF_LEN);
     }
+}
+
+void tCom1(void *pvParameters) {
+    do {
+        al_uart_start_receiving(1);
+        xSemaphoreTake(xSem_com0_rx, portMAX_DELAY);
+        al_uart_write(1, tmp_buf, TMP_BUF_LEN);
+    } while (1);
 }
 
 int main(void) {
@@ -89,14 +73,7 @@ int main(void) {
 
     /* AL Init */
     al_uart_init();
-    al_i2c_init();
-    al_spi_init();
-#if defined(HORIZON_MINI_L4)
     al_tim_dshot_init();
-#endif
-
-    /* Create semaphores */
-    pseudoShellLineReady = xSemaphoreCreateBinary();
 
     /* Create software timers */
     xTimer_blinker = xTimerCreate("tBlinker",
@@ -104,12 +81,29 @@ int main(void) {
                                   pdTRUE,
                                   NULL,
                                   tBlinker);
+    xTimer_DShot_Start = xTimerCreate("tDShot_Start",
+                                  pdMS_TO_TICKS(10000),
+                                  pdFALSE,
+                                  NULL,
+                                  tDShot_Start);
     /* Activate timers */
     xTimerStart(xTimer_blinker, 0);
+    xTimerStart(xTimer_DShot_Start, 0);
+
+    /* Create semaphores */
+    xSem_com0_rx = xSemaphoreCreateBinary();
+    xSem_com1_rx = xSemaphoreCreateBinary();
 
     /* Create tasks */
-    xTaskCreate(tPseudoShell,
-                "tPseudoShell",
+    xTaskCreate(tCom0,
+                "tCom0",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                tskIDLE_PRIORITY + 1,
+                NULL);
+
+    xTaskCreate(tCom1,
+                "tCom1",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 1,
@@ -127,15 +121,34 @@ int main(void) {
     while(1);
 }
 
-void al_uart_0_recv_callback(unsigned char data, int err, int *brk) {
+int al_uart_0_recv_callback(unsigned char c) {
+    static int pos = 0;
+
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        if (!err) {
-            pseudoShellCmdBuff[0] = data;
-            xSemaphoreGiveFromISR(pseudoShellLineReady, NULL);
+        tmp_buf[pos] = c;
+        if (++pos == TMP_BUF_LEN) {
+            pos = 0;
+            xSemaphoreGiveFromISR(xSem_com0_rx, NULL);
         }
     }
 
-    return;
+    return 0;
+}
+
+int al_uart_1_recv_callback(unsigned char c) {
+    static int pos = 0;
+    int brk = 0;
+
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        tmp_buf[pos] = c;
+        if (++pos == TMP_BUF_LEN) {
+            pos = 0;
+            xSemaphoreGiveFromISR(xSem_com1_rx, NULL);
+            brk = 1; // stop receiving
+        }
+    }
+
+    return brk;
 }
 
 #if defined(HORIZON_GS_STD_L4)

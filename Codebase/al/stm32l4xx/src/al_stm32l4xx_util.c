@@ -77,10 +77,6 @@ __weak void al_exti_1_callback(void) {
     return;
 }
 
-__weak void al_exti_2_callback(void) {
-    return;
-}
-
 #ifdef configASSERT
 inline void os_assert_failed(void) {
     HAL_Assert_Failed();
@@ -113,8 +109,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         al_exti_0_callback();
     } else if (1 == index) {
         al_exti_1_callback();
-    } else if (2 == index) {
-        al_exti_2_callback();
     }
 }
 

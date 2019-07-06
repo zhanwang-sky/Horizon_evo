@@ -94,8 +94,12 @@ int al_uart_start_receiving(int fd) {
     return 0;
 }
 
-__weak void al_uart_0_recv_callback(unsigned char data, int err, int *brk) {
-    return;
+__weak int al_uart_0_recv_callback(unsigned char c) {
+    return 0;
+}
+
+__weak int al_uart_1_recv_callback(unsigned char c) {
+    return 0;
 }
 
 /* ISR callbacks -------------------------------------------------------------*/
@@ -124,7 +128,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
     BSP_UART_HDL2IDX(huart, index);
     if (0 == index) {
-        al_uart_0_recv_callback(_al_uart_rxBuf[index], 0, &brk);
+        brk = al_uart_0_recv_callback(_al_uart_rxBuf[index]);
+    } else if (1 == index) {
+        brk = al_uart_1_recv_callback(_al_uart_rxBuf[index]);
     }
     if (!brk) {
         HAL_UART_Receive_IT(huart, &_al_uart_rxBuf[index], 1);
@@ -138,7 +144,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     int index;
-
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_UART_HDL2IDX(huart, index);
         /* Only DMA error may cause Tx fail */
@@ -147,12 +152,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
             _al_uart_txErr[index] = 1;
             xSemaphoreGiveFromISR(_al_uart_txCpltSem[index], NULL);
         } else {
-            /* DMA error and Rx error should not occur simultaneously,
-               so, if not a DMA error, it must be an Rx error. */
-            if (0 == index) {
-                al_uart_0_recv_callback(0, 1, NULL);
-            }
-            // TODO: abort receiving?
+            // TODO: abort?
         }
     }
 }

@@ -40,15 +40,11 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim7;
-extern DMA_HandleTypeDef hdma_tim2_up;
-extern DMA_HandleTypeDef hdma_spi1_tx;
+extern DMA_HandleTypeDef hdma_tim15_ch1_up_trig_com;
 extern DMA_HandleTypeDef hdma_tim1_up;
 extern DMA_HandleTypeDef hdma_usart2_tx;
-extern DMA_HandleTypeDef hdma_spi1_rx;
-extern DMA_HandleTypeDef hdma_i2c1_rx;
-extern DMA_HandleTypeDef hdma_i2c1_tx;
-extern I2C_HandleTypeDef hi2c1;
-extern SPI_HandleTypeDef hspi1;
+extern DMA_HandleTypeDef hdma_usart1_tx;
+extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
 
 /* Private typedef -----------------------------------------------------------*/
@@ -162,21 +158,12 @@ void TIM7_IRQHandler(void) {
 }
 
 /**
-  * @brief  This function handles DMA1 channel2 global interrupt.
+  * @brief  This function handles DMA1 channel5 global interrupt.
   * @param  None
   * @retval None
   */
-void DMA1_Channel2_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_tim2_up);
-}
-
-/**
-  * @brief  This function handles DMA1 channel3 global interrupt.
-  * @param  None
-  * @retval None
-  */
-void DMA1_Channel3_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_spi1_tx);
+void DMA1_Channel5_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_tim15_ch1_up_trig_com);
 }
 
 /**
@@ -198,57 +185,21 @@ void DMA1_Channel7_IRQHandler(void) {
 }
 
 /**
-  * @brief  This function handles DMA2 channel3 global interrupt.
-  * @param  None
-  * @retval None
-  */
-void DMA2_Channel3_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_spi1_rx);
-}
-
-/**
   * @brief  This function handles DMA2 channel6 global interrupt.
   * @param  None
   * @retval None
   */
 void DMA2_Channel6_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_i2c1_rx);
+    HAL_DMA_IRQHandler(&hdma_usart1_tx);
 }
 
 /**
-  * @brief  This function handles DMA2 channel7 global interrupt.
+  * @brief  This function handles USART1 global interrupt.
   * @param  None
   * @retval None
   */
-void DMA2_Channel7_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_i2c1_tx);
-}
-
-/**
-  * @brief  This function handles I2C1 event interrupt.
-  * @param  None
-  * @retval None
-  */
-void I2C1_EV_IRQHandler(void) {
-    HAL_I2C_EV_IRQHandler(&hi2c1);
-}
-
-/**
-  * @brief  This function handles I2C1 error interrupt.
-  * @param  None
-  * @retval None
-  */
-void I2C1_ER_IRQHandler(void) {
-    HAL_I2C_ER_IRQHandler(&hi2c1);
-}
-
-/**
-  * @brief  This function handles SPI1 global interrupt.
-  * @param  None
-  * @retval None
-  */
-void SPI1_IRQHandler(void) {
-    HAL_SPI_IRQHandler(&hspi1);
+void USART1_IRQHandler(void) {
+    HAL_UART_IRQHandler(&huart1);
 }
 
 /**
@@ -261,12 +212,21 @@ void USART2_IRQHandler(void) {
 }
 
 /**
-  * @brief  This function handles EXTI line1 interrupt.
+  * @brief  This function handles EXTI line0 interrupt.
   * @param  None
   * @retval None
   */
-void EXTI1_IRQHandler(void) {
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+void EXTI0_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+}
+
+/**
+  * @brief  This function handles EXTI line[15:10] interrupt.
+  * @param  None
+  * @retval None
+  */
+void EXTI15_10_IRQHandler(void) {
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

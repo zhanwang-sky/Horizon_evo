@@ -39,13 +39,16 @@
 #include "stm32l4xx_hal.h"
 
 /* Global variables ----------------------------------------------------------*/
+DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart2_tx;
+#ifdef _REVISE_N_OPTIMIZE_
 DMA_HandleTypeDef hdma_i2c1_rx;
 DMA_HandleTypeDef hdma_i2c1_tx;
 DMA_HandleTypeDef hdma_spi1_rx;
 DMA_HandleTypeDef hdma_spi1_tx;
+#endif // _REVISE_N_OPTIMIZE_
 DMA_HandleTypeDef hdma_tim1_up;
-DMA_HandleTypeDef hdma_tim2_up;
+DMA_HandleTypeDef hdma_tim15_ch1_up_trig_com;
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -63,28 +66,46 @@ void HAL_MspInit(void) {
     __HAL_RCC_PWR_CLK_ENABLE();
 
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
-
-    /* System interrupt init */
-    /* MemoryManagement_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(MemoryManagement_IRQn, 0, 0);
-    /* BusFault_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(BusFault_IRQn, 0, 0);
-    /* UsageFault_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(UsageFault_IRQn, 0, 0);
-    /* SVCall_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(SVCall_IRQn, 0, 0);
-    /* DebugMonitor_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DebugMonitor_IRQn, 0, 0);
-    /* PendSV_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(PendSV_IRQn, 0, 0);
-    /* SysTick_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(SysTick_IRQn, SYSTICK_INT_PRIORITY, 0);
 }
 
 void HAL_UART_MspInit(UART_HandleTypeDef *uartHandle) {
     GPIO_InitTypeDef GPIO_InitStruct;
 
-    if (USART2 == uartHandle->Instance) {
+    if (USART1 == uartHandle->Instance) {
+        /* USART1 clock enable */
+        __HAL_RCC_USART1_CLK_ENABLE();
+
+        /* USART1 GPIO Configuration
+           PB6 -> USART1_TX
+           PB7 -> USART1_RX
+        */
+        GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+        GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+        /* USART1 DMA Init */
+        /* USART1_TX Init */
+        hdma_usart1_tx.Instance = DMA2_Channel6;
+        hdma_usart1_tx.Init.Request = DMA_REQUEST_2;
+        hdma_usart1_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+        hdma_usart1_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+        hdma_usart1_tx.Init.MemInc = DMA_MINC_ENABLE;
+        hdma_usart1_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        hdma_usart1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+        hdma_usart1_tx.Init.Mode = DMA_NORMAL;
+        hdma_usart1_tx.Init.Priority = DMA_PRIORITY_LOW;
+        if (HAL_DMA_Init(&hdma_usart1_tx) != HAL_OK) {
+            while(1);
+        }
+        __HAL_LINKDMA(uartHandle,hdmatx,hdma_usart1_tx);
+
+        /* USART1 interrupt Init */
+        HAL_NVIC_SetPriority(USART1_IRQn, SYSTICK_INT_PRIORITY - 2U, 0);
+        HAL_NVIC_EnableIRQ(USART1_IRQn);
+    } else {
         /* USART2 clock enable */
         __HAL_RCC_USART2_CLK_ENABLE();
 
@@ -128,6 +149,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *uartHandle) {
     }
 }
 
+#ifdef _REVISE_N_OPTIMIZE_
 void HAL_I2C_MspInit(I2C_HandleTypeDef *i2cHandle) {
     GPIO_InitTypeDef GPIO_InitStruct;
 
@@ -247,6 +269,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *spiHandle) {
         HAL_NVIC_EnableIRQ(SPI1_IRQn);
     }
 }
+#endif // _REVISE_N_OPTIMIZE_
 
 void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim) {
     GPIO_InitTypeDef GPIO_InitStruct;
@@ -282,35 +305,40 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim) {
             while(1);
         }
         __HAL_LINKDMA(htim, hdma[TIM_DMA_ID_UPDATE], hdma_tim1_up);
-    } else if (TIM2 == htim->Instance) {
-        /* TIM2 Peripheral clock enable */
-        __HAL_RCC_TIM2_CLK_ENABLE();
+    } else if (TIM15 == htim->Instance) {
+        /* TIM15 Peripheral clock enable */
+        __HAL_RCC_TIM15_CLK_ENABLE();
 
-        /* TIM2 GPIO Configuration
-           PA1 -> TIM2_CH2
+        /* TIM15 GPIO Configuration
+           PA3 -> TIM15_CH2
         */
-        GPIO_InitStruct.Pin = GPIO_PIN_1;
+        GPIO_InitStruct.Pin = GPIO_PIN_3;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
+        GPIO_InitStruct.Alternate = GPIO_AF14_TIM15;
         HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
         /* TIM2 DMA Init */
         /* TIM2_UP Init */
-        hdma_tim2_up.Instance = DMA1_Channel2;
-        hdma_tim2_up.Init.Request = DMA_REQUEST_4;
-        hdma_tim2_up.Init.Direction = DMA_MEMORY_TO_PERIPH;
-        hdma_tim2_up.Init.PeriphInc = DMA_PINC_DISABLE;
-        hdma_tim2_up.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_tim2_up.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-        hdma_tim2_up.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-        hdma_tim2_up.Init.Mode = DMA_NORMAL;
-        hdma_tim2_up.Init.Priority = DMA_PRIORITY_LOW;
-        if (HAL_DMA_Init(&hdma_tim2_up) != HAL_OK) {
+        hdma_tim15_ch1_up_trig_com.Instance = DMA1_Channel5;
+        hdma_tim15_ch1_up_trig_com.Init.Request = DMA_REQUEST_7;
+        hdma_tim15_ch1_up_trig_com.Init.Direction = DMA_MEMORY_TO_PERIPH;
+        hdma_tim15_ch1_up_trig_com.Init.PeriphInc = DMA_PINC_DISABLE;
+        hdma_tim15_ch1_up_trig_com.Init.MemInc = DMA_MINC_ENABLE;
+        hdma_tim15_ch1_up_trig_com.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+        hdma_tim15_ch1_up_trig_com.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+        hdma_tim15_ch1_up_trig_com.Init.Mode = DMA_NORMAL;
+        hdma_tim15_ch1_up_trig_com.Init.Priority = DMA_PRIORITY_LOW;
+        if (HAL_DMA_Init(&hdma_tim15_ch1_up_trig_com) != HAL_OK) {
             while(1);
         }
-        __HAL_LINKDMA(htim, hdma[TIM_DMA_ID_UPDATE], hdma_tim2_up);
+        /* Several peripheral DMA handle pointers point to the same DMA handle.
+        Be aware that there is only one channel to perform all the requested DMAs. */
+        //__HAL_LINKDMA(htim, hdma[TIM_DMA_ID_CC1], hdma_tim15_ch1_up_trig_com);
+        __HAL_LINKDMA(htim, hdma[TIM_DMA_ID_UPDATE], hdma_tim15_ch1_up_trig_com);
+        //__HAL_LINKDMA(htim, hdma[TIM_DMA_ID_TRIGGER], hdma_tim15_ch1_up_trig_com);
+        //__HAL_LINKDMA(htim, hdma[TIM_DMA_ID_COMMUTATION], hdma_tim15_ch1_up_trig_com);
     }
 }
 
