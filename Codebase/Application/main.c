@@ -136,13 +136,13 @@ int al_uart_0_recv_callback(unsigned char c) {
 }
 
 int al_uart_1_recv_callback(unsigned char c) {
-    static int pos = 0;
+    static int pos = TMP_BUF_LEN - 1;
     int brk = 0;
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         tmp_buf[pos] = c;
-        if (++pos == TMP_BUF_LEN) {
-            pos = 0;
+        if (--pos < 0) {
+            pos = TMP_BUF_LEN - 1;
             xSemaphoreGiveFromISR(xSem_com1_rx, NULL);
             brk = 1; // stop receiving
         }
