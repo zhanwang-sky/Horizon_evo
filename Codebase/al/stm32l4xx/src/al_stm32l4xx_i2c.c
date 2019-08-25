@@ -24,9 +24,9 @@
 #include <string.h>
 
 /* Private typedef -----------------------------------------------------------*/
-typedef HAL_StatusTypeDef(*_HAL_I2C_Mem_Xfer_DMA_t) \
-    (I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress, \
-     uint16_t MemAddSize, uint8_t *pData, uint16_t Size);
+typedef HAL_StatusTypeDef(*_HAL_I2C_Mem_Xfer_DMA_t) (
+    I2C_HandleTypeDef *hi2c, uint16_t DevAddress, uint16_t MemAddress,
+    uint16_t MemAddSize, uint8_t *pData, uint16_t Size);
 
 typedef struct _al_i2c_params {
     int index;
@@ -39,24 +39,11 @@ typedef struct _al_i2c_params {
 } _al_i2c_params_t;
 
 /* Private variables ---------------------------------------------------------*/
-static SemaphoreHandle_t _al_i2c_mutex[BSP_NR_I2Cs] = { NULL };
-static SemaphoreHandle_t _al_i2c_cpltSem[BSP_NR_I2Cs] = { NULL };
+static SemaphoreHandle_t _al_i2c_mutex[BSP_NR_I2Cs];
+static SemaphoreHandle_t _al_i2c_cpltSem[BSP_NR_I2Cs];
 
 /* Functions -----------------------------------------------------------------*/
-int al_i2c_init(void) {
-    for (int i = 0; i < BSP_NR_I2Cs; i++) {
-        if (NULL == (_al_i2c_mutex[i] = xSemaphoreCreateMutex())) {
-            return -1;
-        }
-        if (NULL == (_al_i2c_cpltSem[i] = xSemaphoreCreateBinary())) {
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
-int _al_i2c_xfer(_al_i2c_params_t *params) {
+static int _al_i2c_xfer(_al_i2c_params_t *params) {
     int rc = 0;
 
     xSemaphoreTake(_al_i2c_mutex[params->index], portMAX_DELAY);
@@ -77,6 +64,19 @@ EXIT:
     xSemaphoreGive(_al_i2c_mutex[params->index]);
 
     return rc;
+}
+
+int al_i2c_init(void) {
+    for (int i = 0; i < BSP_NR_I2Cs; i++) {
+        if (NULL == (_al_i2c_mutex[i] = xSemaphoreCreateMutex())) {
+            return -1;
+        }
+        if (NULL == (_al_i2c_cpltSem[i] = xSemaphoreCreateBinary())) {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes) {
@@ -156,6 +156,16 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
   * @retval None
   */
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
+    _al_i2c_xferCpltCallback(hi2c);
+}
+
+/**
+  * @brief  I2C abort callback.
+  * @param  hi2c Pointer to a I2C_HandleTypeDef structure that contains
+  *                the configuration information for the specified I2C.
+  * @retval None
+  */
+void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c) {
     _al_i2c_xferCpltCallback(hi2c);
 }
 

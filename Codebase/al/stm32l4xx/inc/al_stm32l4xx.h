@@ -22,8 +22,8 @@ void al_exti_1_callback(void);
 int al_uart_init(void);
 int al_uart_write(int fd, const void *buf, unsigned int nbytes);
 int al_uart_start_receiving(int fd);
-int al_uart_0_recv_callback(unsigned char c);
-int al_uart_1_recv_callback(unsigned char c);
+void al_uart_0_recv_callback(unsigned char c, int ec, int *brk);
+void al_uart_1_recv_callback(unsigned char c, int ec, int *brk);
 /* i2c */
 int al_i2c_init(void);
 int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes);

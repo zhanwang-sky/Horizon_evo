@@ -110,11 +110,11 @@
         </CommonProperty>
         <DllOption>
           <SimDllName>SARMCM3.DLL</SimDllName>
-          <SimDllArguments> -REMAP -MPU</SimDllArguments>
+          <SimDllArguments>-REMAP -MPU</SimDllArguments>
           <SimDlgDll>DCM.DLL</SimDlgDll>
           <SimDlgDllArguments>-pCM4</SimDlgDllArguments>
           <TargetDllName>SARMCM3.DLL</TargetDllName>
-          <TargetDllArguments> -MPU</TargetDllArguments>
+          <TargetDllArguments>-MPU</TargetDllArguments>
           <TargetDlgDll>TCM.DLL</TargetDlgDll>
           <TargetDlgDllArguments>-pCM4</TargetDlgDllArguments>
         </DllOption>
@@ -392,6 +392,11 @@
         <Group>
           <GroupName>AL</GroupName>
           <Files>
+            <File>
+              <FileName>al_stm32l4xx_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\al\stm32l4xx\src\al_stm32l4xx_i2c.c</FilePath>
+            </File>
             <File>
               <FileName>al_stm32l4xx_tim_dshot.c</FileName>
               <FileType>1</FileType>

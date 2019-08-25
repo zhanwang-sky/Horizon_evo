@@ -40,12 +40,15 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim7;
-extern DMA_HandleTypeDef hdma_tim15_ch1_up_trig_com;
-extern DMA_HandleTypeDef hdma_tim1_up;
-extern DMA_HandleTypeDef hdma_usart2_tx;
-extern DMA_HandleTypeDef hdma_usart1_tx;
+extern DMA_HandleTypeDef hdma_i2c3_tx; // DMA1_CH2
+extern DMA_HandleTypeDef hdma_i2c3_rx; // DMA1_CH3
+extern DMA_HandleTypeDef hdma_tim15_ch1_up_trig_com; // DMA1_CH5
+extern DMA_HandleTypeDef hdma_tim1_up; // DMA1_CH6
+extern DMA_HandleTypeDef hdma_usart2_tx; // DMA1_CH7
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
+extern DMA_HandleTypeDef hdma_usart1_tx; // DMA2_CH6
+extern I2C_HandleTypeDef hi2c3;
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -158,6 +161,24 @@ void TIM7_IRQHandler(void) {
 }
 
 /**
+  * @brief  This function handles DMA1 channel2 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel2_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_i2c3_tx);
+}
+
+/**
+  * @brief  This function handles DMA1 channel3 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA1_Channel3_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_i2c3_rx);
+}
+
+/**
   * @brief  This function handles DMA1 channel5 global interrupt.
   * @param  None
   * @retval None
@@ -185,15 +206,6 @@ void DMA1_Channel7_IRQHandler(void) {
 }
 
 /**
-  * @brief  This function handles DMA2 channel6 global interrupt.
-  * @param  None
-  * @retval None
-  */
-void DMA2_Channel6_IRQHandler(void) {
-    HAL_DMA_IRQHandler(&hdma_usart1_tx);
-}
-
-/**
   * @brief  This function handles USART1 global interrupt.
   * @param  None
   * @retval None
@@ -209,6 +221,33 @@ void USART1_IRQHandler(void) {
   */
 void USART2_IRQHandler(void) {
     HAL_UART_IRQHandler(&huart2);
+}
+
+/**
+  * @brief  This function handles DMA2 channel6 global interrupt.
+  * @param  None
+  * @retval None
+  */
+void DMA2_Channel6_IRQHandler(void) {
+    HAL_DMA_IRQHandler(&hdma_usart1_tx);
+}
+
+/**
+  * @brief  This function handles I2C3 event interrupt.
+  * @param  None
+  * @retval None
+  */
+void I2C3_EV_IRQHandler(void) {
+    HAL_I2C_EV_IRQHandler(&hi2c3);
+}
+
+/**
+  * @brief  This function handles I2C3 error interrupt.
+  * @param  None
+  * @retval None
+  */
+void I2C3_ER_IRQHandler(void) {
+    HAL_I2C_ER_IRQHandler(&hi2c3);
 }
 
 /**

@@ -18,7 +18,7 @@
 #define BSP_NR_GPIOs (2)
 #define BSP_NR_EXTIs (2)
 #define BSP_NR_UARTs (2)
-#define BSP_NR_I2Cs (0)
+#define BSP_NR_I2Cs (1)
 #define BSP_NR_SPIs (0)
 #define BSP_NR_SPI_NSS (2)
 #define BSP_NR_DSHOT_CHANNELs (4)
@@ -31,7 +31,7 @@
 #define BSP_SYSCLK_PLLQ RCC_PLLQ_DIV2
 #define BSP_SYSCLK_PLLR RCC_PLLR_DIV2
 
-#define BSP_UART_BAUD_RATE (9600)
+#define BSP_UART_BAUD_RATE (115200)
 #define BSP_I2C_TIMING (0x00702681)
 #define BSP_SPI_PRESCALER SPI_BAUDRATEPRESCALER_128
 #define BSP_TIM_DSHOT_CNT_CLK (1500000)
@@ -91,11 +91,10 @@ do { \
     } \
 } while (0)
 
-#ifdef _REVISE_N_OPTIMIZE_
 #define BSP_I2C_FD2IDXHDL(FD, INDEX, HI2C) \
 do { \
     INDEX = 0; \
-    HI2C = &hi2c1; \
+    HI2C = &hi2c3; \
 } while (0)
 
 #define BSP_I2C_HDL2IDX(HI2C, INDEX) \
@@ -103,6 +102,7 @@ do { \
     INDEX = 0; \
 } while (0)
 
+#ifdef _REVISE_N_OPTIMIZE_
 #define BSP_SPI_IS_VALID_FD(FD, SUBFD) \
     ((FD) >= 0 && (FD) < BSP_NR_SPIs && (SUBFD) >= 0 && (SUBFD) < BSP_NR_SPI_NSS)
 
@@ -192,8 +192,8 @@ do { \
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
+extern I2C_HandleTypeDef hi2c3;
 #ifdef _REVISE_N_OPTIMIZE_
-extern I2C_HandleTypeDef hi2c1;
 extern SPI_HandleTypeDef hspi1;
 #endif // _REVISE_N_OPTIMIZE_
 extern TIM_HandleTypeDef htim1;
