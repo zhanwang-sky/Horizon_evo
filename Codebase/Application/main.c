@@ -36,29 +36,32 @@ char msgBuf[121];
 /* Functions -----------------------------------------------------------------*/
 /* Threads */
 void tBlinker(TimerHandle_t xTimer) {
+    static int count = 0;
+    unsigned int values[4];
+
     al_gpio_toggle_pin(0); // non-blocking API
+
+    if (count < 15) {
+        count++;
+        if (count > 10) {
+            for (int i = 0; i < 4; i++) {
+                values[i] = (count - 10) * 200;
+            }
+            al_tim_dshot_set4(values); // non-block API
+        }
+    }
 }
 
 void tPrintHello(void *pvParameters) {
     static int count = 0;
     TickType_t xLastWakeTime;
     int len;
-    // DShot test
-    char dshotSet = 0;
 
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        // sleep 1s
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
-        // print hello
-        len = snprintf(msgBuf, sizeof(msgBuf), "%04d hello world!\r\n", ++count);
+        len = snprintf(msgBuf, sizeof(msgBuf), "%04d hello world!\r\n", count++);
         al_uart_write(1, msgBuf, len);
-        // start motor
-        if (!dshotSet && count == 10) {
-            dshotSet = 1;
-            al_tim_dshot_set(0, 200); // 10%
-            xTimerChangePeriod(xTimerBlinker, pdMS_TO_TICKS(100), 0); // 10HZ
-        }
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
     }
 }
 
