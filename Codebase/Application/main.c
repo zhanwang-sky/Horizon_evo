@@ -27,13 +27,54 @@
 #error please specify a target board
 #endif
 
+#include "icm20648.h"
+
 /* Definitions ---------------------------------------------------------------*/
 
+/* Macros --------------------------------------------------------------------*/
+#define LOG(format, ...) \
+do { \
+    extern char msgBuf[]; \
+    int len; \
+    len = snprintf(msgBuf, sizeof(msgBuf), format, ##__VA_ARGS__); \
+    al_uart_write(1, msgBuf, len); \
+} while (0)
+
 /* Global variables ----------------------------------------------------------*/
-TimerHandle_t xTimerBlinker;
 char msgBuf[121];
+TimerHandle_t xTimerBlinker;
+volatile unsigned int initialized = 0;
+volatile unsigned int hits = 0;
 
 /* Functions -----------------------------------------------------------------*/
+int inv_icm_initializer(void) {
+    int rc;
+
+    /* Initialize ICM20x48 */
+    // 0. wait to device power-up
+    vTaskDelay(pdMS_TO_TICKS(100));
+    // 1. reset and wakeup
+    rc |= inv_icm_soft_reset();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    rc |= inv_icm_wakeup();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    // 2. enable ODR align
+    rc |= inv_icm_enable_odr_align();
+    // 3. set gyro sample rate & full scale
+    rc |= inv_icm_set_gyro_smplrt(562);
+    rc |= inv_icm_set_gfs(MPU_FS_2000DPS);
+    // 4. set accelerator sample rate & full scale
+    rc |= inv_icm_set_accel_smplrt(562);
+    rc |= inv_icm_set_afs(MPU_FS_16G);
+    // 5. enter duty-cycle mode
+    rc |= inv_icm_set_lp_mode(MPU_LP_DUTY_CYCLE);
+    // since enabled LPF, needs to wait the old data flushed out
+    vTaskDelay(pdMS_TO_TICKS(100));
+    rc |= inv_icm_enable_int();
+
+    return rc;
+}
+
 /* Threads */
 void tBlinker(TimerHandle_t xTimer) {
     static int count = 0;
@@ -43,7 +84,9 @@ void tBlinker(TimerHandle_t xTimer) {
 
     if (count < 15) {
         count++;
-        if (count > 10) {
+        if (count == 10) {
+            xTimerChangePeriod(xTimerBlinker, pdMS_TO_TICKS(100), 0);
+        } else if (count > 10) {
             for (int i = 0; i < 4; i++) {
                 values[i] = (count - 10) * 200;
             }
@@ -52,16 +95,20 @@ void tBlinker(TimerHandle_t xTimer) {
     }
 }
 
-void tPrintHello(void *pvParameters) {
-    static int count = 0;
+void tComm(void *pvParameters) {
     TickType_t xLastWakeTime;
-    int len;
+    int sec = 0;
+    int rc;
 
+    LOG("initializing icm20648...\r\n");
+    rc = inv_icm_initializer();
+    LOG("rc = %d\r\n", rc);
+
+    initialized = 1;
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        len = snprintf(msgBuf, sizeof(msgBuf), "%04d hello world!\r\n", count++);
-        al_uart_write(1, msgBuf, len);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
+        LOG("sec = %d, hits = %d\r\n", ++sec, hits);
     }
 }
 
@@ -77,8 +124,8 @@ int main(void) {
     /* Create semaphores */
 
     /* Create tasks */
-    xTaskCreate(tPrintHello,
-                "thread tPrintHello",
+    xTaskCreate(tComm,
+                "thread communication",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 configTIMER_TASK_PRIORITY + 1,
@@ -103,6 +150,12 @@ int main(void) {
        See the memory management section on the FreeRTOS web site for more
        details. */
     while(1);
+}
+
+void al_exti_0_callback(void) {
+    if (initialized) {
+        hits++;
+    }
 }
 
 #if 0

@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define>STM32L432xx,USE_HAL_DRIVER,HORIZON_MINI_L4</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\Codebase\Application\imu;..\..\..\Codebase\Application\inv;..\..\..\Codebase\Application\NORDIC\nRF24L01;..\..\..\Codebase\FreeRTOS\Source\include;..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F;..\..\..\Codebase\al\stm32l4xx\inc;..\..\..\Codebase\BSP\NUCLEO-L432KC\Inc;..\..\..\Codebase\Drivers\CMSIS\Include;..\..\..\Codebase\Drivers\CMSIS\Device\ST\STM32L4xx\Include;..\..\..\Codebase\Drivers\STM32L4xx_HAL_Driver\Inc</IncludePath>
+              <IncludePath>..\..\..\Codebase\Application\Invensense;..\..\..\Codebase\al\stm32l4xx\inc;..\..\..\Codebase\FreeRTOS\Source\include;..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F;..\..\..\Codebase\BSP\NUCLEO-L432KC\Inc;..\..\..\Codebase\Drivers\CMSIS\Include;..\..\..\Codebase\Drivers\CMSIS\Device\ST\STM32L4xx\Include;..\..\..\Codebase\Drivers\STM32L4xx_HAL_Driver\Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -386,6 +386,11 @@
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\Application\main.c</FilePath>
+            </File>
+            <File>
+              <FileName>icm20648.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\Codebase\Application\Invensense\icm20648.c</FilePath>
             </File>
           </Files>
         </Group>
