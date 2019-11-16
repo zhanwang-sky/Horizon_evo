@@ -106,6 +106,9 @@
 #define REG_TEMP_OUT_H          (BANK_0 | 0x39)
 #define REG_TEMP_OUT_L          (BANK_0 | 0x3a)
 
+/* bank 1 register map */
+#define REG_TIMEBASE_CORRECTION_PLL (BANK_1 | 0x28)
+
 /* bank 2 register map */
 #define REG_GYRO_SMPLRT_DIV     (BANK_2 | 0x00)
 
@@ -121,6 +124,13 @@
 #define BIT_YGYRO_CTEN                  0x10
 #define BIT_ZGYRO_CTEN                  0x08
 #define BITS_GYRO_AVGCFG                0x07
+
+#define REG_XG_OFFS_USRH        (BANK_2 | 0x03)
+#define REG_XG_OFFS_USRL        (BANK_2 | 0x04)
+#define REG_YG_OFFS_USRH        (BANK_2 | 0x05)
+#define REG_YG_OFFS_USRL        (BANK_2 | 0x06)
+#define REG_ZG_OFFS_USRH        (BANK_2 | 0x07)
+#define REG_ZG_OFFS_USRL        (BANK_2 | 0x08)
 
 #define REG_ODR_ALIGN_EN        (BANK_2 | 0x09)
 #define BIT_ODR_ALIGN_EN                0x01
@@ -166,7 +176,7 @@ static int inv_set_bank(unsigned char bank) {
     return al_i2c_write(g_inv_icm20648_i2c_fd, INV_ICM_I2C_ADDRESS, REG_BANK_SEL, &data, 1);
 }
 
-int
+static int
 inv_icm20648_write_single_mems_reg(unsigned short reg, const unsigned char data) {
     unsigned char regOnly = (unsigned char) (reg & 0x7F);
     int rc;
@@ -182,7 +192,7 @@ EXIT:
     return rc;
 }
 
-int
+static int
 inv_icm20648_write_mems_reg(unsigned short reg, unsigned int length, const unsigned char *data) {
     unsigned char regOnly = (unsigned char) (reg & 0x7F);
     unsigned int bytesWritten;
@@ -208,7 +218,7 @@ EXIT:
     return rc;
 }
 
-int
+static int
 inv_icm20648_read_single_mems_reg(unsigned short reg, unsigned char *data) {
     unsigned char regOnly = (unsigned char) (reg & 0x7F);
     int rc;
@@ -224,7 +234,7 @@ EXIT:
     return rc;
 }
 
-int
+static int
 inv_icm20648_read_mems_reg(unsigned short reg, unsigned int length, unsigned char *data) {
     unsigned char regOnly = (unsigned char) (reg & 0x7F);
     unsigned int bytesRead;
@@ -265,21 +275,6 @@ int inv_icm_wakeup(void) {
     }
     data &= ~BIT_SLEEP;
     rc = inv_icm20648_write_single_mems_reg(REG_PWR_MGMT_1, data);
-
-EXIT:
-    return rc;
-}
-
-int inv_icm_enable_odr_align(void) {
-    unsigned char data;
-    int rc;
-
-    rc = inv_icm20648_read_single_mems_reg(REG_ODR_ALIGN_EN, &data);
-    if (rc < 0) {
-        goto EXIT;
-    }
-    data |= BIT_ODR_ALIGN_EN;
-    rc = inv_icm20648_write_single_mems_reg(REG_ODR_ALIGN_EN, data);
 
 EXIT:
     return rc;
@@ -440,6 +435,21 @@ EXIT:
     return rc;
 }
 
+int inv_icm_set_tbc_pll(char tbc_pll) {
+    return inv_icm20648_write_single_mems_reg(REG_TIMEBASE_CORRECTION_PLL, tbc_pll);
+}
+
+int inv_icm_set_gyro_offs(const short gyro_offs[3]) {
+    unsigned char data[6];
+
+    for (int i = 0; i < 3; i++) {
+        data[2 * i] = gyro_offs[i] >> 8;
+        data[(2 * i) + 1] = gyro_offs[i] & 0xff;
+    }
+
+    return inv_icm20648_write_mems_reg(REG_XG_OFFS_USRH, 6, data);
+}
+
 int inv_icm_set_lp_mode(mpu_lp_mode_t lp_mode) {
     unsigned char data;
     int rc;
@@ -465,6 +475,21 @@ EXIT:
     return rc;
 }
 
+int inv_icm_enable_odr_align(void) {
+    unsigned char data;
+    int rc;
+
+    rc = inv_icm20648_read_single_mems_reg(REG_ODR_ALIGN_EN, &data);
+    if (rc < 0) {
+        goto EXIT;
+    }
+    data |= BIT_ODR_ALIGN_EN;
+    rc = inv_icm20648_write_single_mems_reg(REG_ODR_ALIGN_EN, data);
+
+EXIT:
+    return rc;
+}
+
 int inv_icm_enable_int(void) {
     unsigned char data;
     int rc;
@@ -476,6 +501,23 @@ int inv_icm_enable_int(void) {
     }
     data |= BIT_RAW_DATA_0_RDY_EN;
     rc = inv_icm20648_write_single_mems_reg(REG_INT_ENABLE_1, data);
+
+EXIT:
+    return rc;
+}
+
+int inv_icm_read_raw6(short raw6[6]) {
+    static unsigned char raw_data[12]; // XXX not thread safe
+    int rc;
+
+    rc = inv_icm20648_read_mems_reg(REG_ACCEL_XOUT_H, 12, raw_data);
+    if (rc < 0) {
+        goto EXIT;
+    }
+
+    for (int i = 0; i < 6; i++) {
+        raw6[i] = (raw_data[2 * i] << 8) | raw_data[(2 * i) + 1];
+    }
 
 EXIT:
     return rc;

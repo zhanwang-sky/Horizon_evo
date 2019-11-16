@@ -37,13 +37,16 @@ typedef enum mpu_gyro_fs {
 /* Functions -----------------------------------------------------------------*/
 int inv_icm_soft_reset(void);
 int inv_icm_wakeup(void);
-int inv_icm_enable_odr_align(void);
 int inv_icm_set_gyro_smplrt(int);
 int inv_icm_set_gfs(mpu_gyro_fs_t);
 int inv_icm_set_accel_smplrt(int);
 int inv_icm_set_afs(mpu_accel_fs_t);
+int inv_icm_set_tbc_pll(char);
+int inv_icm_set_gyro_offs(const short[3]);
 int inv_icm_set_lp_mode(mpu_lp_mode_t);
+int inv_icm_enable_odr_align(void);
 int inv_icm_enable_int(void);
+int inv_icm_read_raw6(short[6]);
 
 #endif /* _ICM20648_H */
 

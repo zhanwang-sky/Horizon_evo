@@ -31,28 +31,19 @@
 
 /* Definitions ---------------------------------------------------------------*/
 
-/* Macros --------------------------------------------------------------------*/
-#define LOG(format, ...) \
-do { \
-    extern char msgBuf[]; \
-    int len; \
-    len = snprintf(msgBuf, sizeof(msgBuf), format, ##__VA_ARGS__); \
-    al_uart_write(1, msgBuf, len); \
-} while (0)
-
 /* Global variables ----------------------------------------------------------*/
-char msgBuf[121];
+SemaphoreHandle_t xSemDRDY;
+SemaphoreHandle_t xSemInitialized;
+SemaphoreHandle_t xMutRaw6;
 TimerHandle_t xTimerBlinker;
-volatile unsigned int initialized = 0;
-volatile unsigned int hits = 0;
+volatile int g_icm_initialized;
+short g_raw6[6];
+unsigned g_hits;
 
 /* Functions -----------------------------------------------------------------*/
-int inv_icm_initializer(void) {
+int inv_icm_init(const short gyro_offs[3]) {
     int rc;
 
-    /* Initialize ICM20x48 */
-    // 0. wait to device power-up
-    vTaskDelay(pdMS_TO_TICKS(100));
     // 1. reset and wakeup
     rc |= inv_icm_soft_reset();
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -66,9 +57,9 @@ int inv_icm_initializer(void) {
     // 4. set accelerator sample rate & full scale
     rc |= inv_icm_set_accel_smplrt(562);
     rc |= inv_icm_set_afs(MPU_FS_16G);
-    // 5. enter duty-cycle mode
-    rc |= inv_icm_set_lp_mode(MPU_LP_DUTY_CYCLE);
-    // since enabled LPF, needs to wait the old data flushed out
+    // 5. set gyro offset
+    rc |= inv_icm_set_gyro_offs(gyro_offs);
+    // 6. enable interrupt
     vTaskDelay(pdMS_TO_TICKS(100));
     rc |= inv_icm_enable_int();
 
@@ -96,20 +87,64 @@ void tBlinker(TimerHandle_t xTimer) {
 }
 
 void tComm(void *pvParameters) {
+    static char msgBuf[121];
+    static int len;
+#define LOG(format, ...) \
+    do { \
+        len = snprintf(msgBuf, sizeof(msgBuf), format, ##__VA_ARGS__); \
+        al_uart_write(1, msgBuf, len); \
+    } while (0)
+
     TickType_t xLastWakeTime;
-    int sec = 0;
-    int rc;
+    short raw6[6];
+    unsigned hits;
+    unsigned count = 0;
 
-    LOG("initializing icm20648...\r\n");
-    rc = inv_icm_initializer();
-    LOG("rc = %d\r\n", rc);
-
-    initialized = 1;
+    // waiting for ICM20648 initialization
+    xSemaphoreTake(xSemInitialized, portMAX_DELAY);
+    // start 0.1HZ loop
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
-        LOG("sec = %d, hits = %d\r\n", ++sec, hits);
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10000));
+        xSemaphoreTake(xMutRaw6, portMAX_DELAY);
+        memcpy(raw6, g_raw6, sizeof(raw6));
+        memset(g_raw6, 0, sizeof(g_raw6));
+        hits = g_hits;
+        xSemaphoreGive(xMutRaw6);
+        LOG("count: %u, hits %u, gyro_sum: %d, %d, %d\r\n",
+            ++count, hits, raw6[3], raw6[4], raw6[5]);
     }
+
+#undef LOG
+}
+
+void tIMUCollector(void *pvParameters) {
+    static const short gyro_offset[3] = { -47, 8, 6 };
+    static short raw6[6];
+    int rc;
+
+    // waiting for IMC20648 powered up
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    rc = inv_icm_init(gyro_offset);
+    if (rc < 0) {
+        return;
+    }
+
+    g_icm_initialized = 1;
+    xSemaphoreGive(xSemInitialized);
+
+    while (xSemaphoreTake(xSemDRDY, pdMS_TO_TICKS(3)) == pdTRUE) {
+        inv_icm_read_raw6(raw6);
+        xSemaphoreTake(xMutRaw6, portMAX_DELAY);
+        for (int i = 0; i < 3; i++) {
+            g_raw6[i + 3] += raw6[i + 3];
+        }
+        g_hits++;
+        xSemaphoreGive(xMutRaw6);
+    }
+
+    return;
 }
 
 int main(void) {
@@ -122,6 +157,9 @@ int main(void) {
     al_tim_dshot_init();
 
     /* Create semaphores */
+    xSemDRDY = xSemaphoreCreateBinary();
+    xSemInitialized = xSemaphoreCreateBinary();
+    xMutRaw6 = xSemaphoreCreateMutex();
 
     /* Create tasks */
     xTaskCreate(tComm,
@@ -129,6 +167,13 @@ int main(void) {
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 configTIMER_TASK_PRIORITY + 1,
+                NULL);
+
+    xTaskCreate(tIMUCollector,
+                "thread IMU collector",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                configTIMER_TASK_PRIORITY + 2,
                 NULL);
 
     /* Create software timers */
@@ -153,8 +198,8 @@ int main(void) {
 }
 
 void al_exti_0_callback(void) {
-    if (initialized) {
-        hits++;
+    if (g_icm_initialized) {
+        xSemaphoreGiveFromISR(xSemDRDY, NULL);
     }
 }
 
