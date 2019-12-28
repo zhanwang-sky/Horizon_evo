@@ -41,13 +41,19 @@
 #define BSP_TIM_DSHOT_CODE0 (BSP_TIM_DSHOT_PERIOD * 3 / 10)
 #define BSP_TIM_DSHOT_CODE1 (BSP_TIM_DSHOT_PERIOD * 7 / 10)
 
+#define BSP_SYSLED_PORT          GPIOB
+#define BSP_SYSLED_PIN           GPIO_PIN_3
+#define BSP_SYSLED_TP_UNDER_INIT 1000U
+#define BSP_SYSLED_TP_NORMAL     500U
+#define BSP_SYSLED_TP_FAULT      50U
+
 /* Macros --------------------------------------------------------------------*/
 #define BSP_GPIO_FD2PORTPIN(FD, PORT, PIN) \
 do { \
     if ((FD) == 0) { \
         /* PB3(D0) */ \
-        PORT = GPIOB; \
-        PIN = GPIO_PIN_3; \
+        PORT = BSP_SYSLED_PORT; \
+        PIN = BSP_SYSLED_PIN; \
     } else { \
         /* PB1(D5\A2) */ \
         PORT = GPIOB; \

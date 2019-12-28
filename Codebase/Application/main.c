@@ -71,12 +71,10 @@ void tBlinker(TimerHandle_t xTimer) {
     static int count = 0;
     unsigned int values[4];
 
-    al_gpio_toggle_pin(0); // non-blocking API
-
     if (count < 15) {
         count++;
         if (count == 10) {
-            xTimerChangePeriod(xTimerBlinker, pdMS_TO_TICKS(100), 0);
+            BSP_SYSLED_Set_Normal();
         } else if (count > 10) {
             for (int i = 0; i < 4; i++) {
                 values[i] = (count - 10) * 200;
@@ -102,10 +100,10 @@ void tComm(void *pvParameters) {
 
     // waiting for ICM20648 initialization
     xSemaphoreTake(xSemInitialized, portMAX_DELAY);
-    // start 0.1HZ loop
+    // start 1HZ loop
     xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10000));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
         xSemaphoreTake(xMutRaw6, portMAX_DELAY);
         memcpy(raw6, g_raw6, sizeof(raw6));
         memset(g_raw6, 0, sizeof(g_raw6));

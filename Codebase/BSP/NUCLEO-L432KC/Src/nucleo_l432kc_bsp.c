@@ -14,6 +14,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "nucleo_l432kc_bsp_config.h"
+#include "nucleo_l432kc_bsp.h"
 
 /* Global variables ----------------------------------------------------------*/
 UART_HandleTypeDef huart1;
@@ -24,6 +25,10 @@ SPI_HandleTypeDef hspi1;
 #endif // _REVISE_N_OPTIMIZE_
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim15;
+
+/* Private variables ---------------------------------------------------------*/
+/* SYS LED toggle period (ms) */
+static volatile uint32_t sysled_tp_ms = BSP_SYSLED_TP_UNDER_INIT;
 
 /* Functions -----------------------------------------------------------------*/
 /**
@@ -396,15 +401,27 @@ void BSP_MCU_Init(void) {
     return;
 }
 
+inline void BSP_SYSLED_Set_UnderInit(void) { sysled_tp_ms = BSP_SYSLED_TP_UNDER_INIT; }
+
+inline void BSP_SYSLED_Set_Normal(void) { sysled_tp_ms = BSP_SYSLED_TP_NORMAL; }
+
+inline void BSP_SYSLED_Set_Fault(void) { sysled_tp_ms = BSP_SYSLED_TP_FAULT; }
+
 #ifdef USE_FULL_ASSERT
 void HAL_Assert_Failed(void) {
-    /* disable all interrupts */
-    __disable_irq();
-    /* turn off LED */
-    GPIOB->BRR = (uint32_t) GPIO_PIN_3;
-    /* stop here */
-    while(1);
+    BSP_SYSLED_Set_Fault();
 }
 #endif /* end of USE_FULL_ASSERT */
+
+/* ISR -----------------------------------------------------------------------*/
+void HAL_IncTick(void) {
+    static GPIO_TypeDef *const port = BSP_SYSLED_PORT;
+    static const uint16_t pin = BSP_SYSLED_PIN;
+
+    if ((++uwTick % sysled_tp_ms) == 0) {
+        // toggle SYS LED
+        port->ODR ^= pin;
+    }
+}
 
 /******************************** END OF FILE *********************************/
