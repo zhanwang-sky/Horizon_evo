@@ -11,6 +11,25 @@
 #ifndef __AL_STM32L4XX_H
 #define __AL_STM32L4XX_H
 
+/* Common definitions --------------------------------------------------------*/
+/* aio */
+#define AIO_NONBLOCK (1 << 0)
+/* errno */
+#define EINTR   (4)
+#define EIO     (5)
+#define ENXIO   (6)
+#define EBADF   (9)
+#define ENOMEM  (12)
+#define EFAULT  (14)
+#define EBUSY   (16)
+#define EINVAL  (22)
+#define EAGAIN  (35)
+#define EPWROFF (82)
+#define EDEVERR (83)
+
+/* Includes ------------------------------------------------------------------*/
+#include "al_stm32l4xx_uart.h"
+
 /* Function prototypes -------------------------------------------------------*/
 /* gpio */
 int al_gpio_write_pin(int fd, int state);
@@ -18,12 +37,6 @@ int al_gpio_read_pin(int fd, int *pState);
 int al_gpio_toggle_pin(int fd);
 void al_exti_0_callback(void);
 void al_exti_1_callback(void);
-/* uart */
-int al_uart_init(void);
-int al_uart_write(int fd, const void *buf, unsigned int nbytes);
-int al_uart_start_receiving(int fd);
-void al_uart_0_recv_callback(unsigned char c, int ec, int *brk);
-void al_uart_1_recv_callback(unsigned char c, int ec, int *brk);
 /* i2c */
 int al_i2c_init(void);
 int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes);

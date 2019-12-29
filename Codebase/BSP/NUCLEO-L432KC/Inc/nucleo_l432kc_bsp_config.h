@@ -31,7 +31,7 @@
 #define BSP_SYSCLK_PLLQ RCC_PLLQ_DIV2
 #define BSP_SYSCLK_PLLR RCC_PLLR_DIV2
 
-#define BSP_UART_BAUD_RATE (115200)
+#define BSP_UART_BAUD_RATE (9600)
 #define BSP_I2C_TIMING (0x00702681)
 #define BSP_SPI_PRESCALER SPI_BAUDRATEPRESCALER_128
 #define BSP_TIM_DSHOT_CNT_CLK (1500000)
@@ -77,23 +77,21 @@ do { \
     } \
 } while (0)
 
-#define BSP_UART_FD2IDXHDL(FD, INDEX, HUART) \
+#define BSP_UART_FD2HDL(FD, HUART) \
 do { \
     if ((FD) == 0) { \
-        INDEX = 0; \
         HUART = &huart1; \
     } else { \
-        INDEX = 1; \
         HUART = &huart2; \
     } \
 } while (0)
 
-#define BSP_UART_HDL2IDX(HUART, INDEX) \
+#define BSP_UART_HDL2FD(HUART, FD) \
 do { \
     if (USART1 == HUART->Instance) { \
-        INDEX = 0; \
+        FD = 0; \
     } else { \
-        INDEX = 1; \
+        FD = 1; \
     } \
 } while (0)
 

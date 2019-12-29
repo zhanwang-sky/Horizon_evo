@@ -10,139 +10,110 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdio.h>
-#include <string.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
-#include "timers.h"
 #include "semphr.h"
 
 #if defined(HORIZON_MINI_L4)
+#include "al_stm32l4xx.h"
 #include "nucleo_l432kc_bsp.h"
-#include "al_stm32l4xx.h"
 #elif defined(HORIZON_GS_STD_L4)
-#include "nucleo_l476rg_bsp.h"
 #include "al_stm32l4xx.h"
+#include "nucleo_l476rg_bsp.h"
 #else
 #error please specify a target board
 #endif
 
-#include "icm20648.h"
-
 /* Definitions ---------------------------------------------------------------*/
 
 /* Global variables ----------------------------------------------------------*/
-SemaphoreHandle_t xSemDRDY;
-SemaphoreHandle_t xSemInitialized;
-SemaphoreHandle_t xMutRaw6;
-TimerHandle_t xTimerBlinker;
-volatile int g_icm_initialized;
-short g_raw6[6];
-unsigned g_hits;
+SemaphoreHandle_t gSem_printBlob;
+unsigned int g_count = 0;
+const char g_strBlob[] =
+    "~~~~~~~~~~\r\n"
+    "magnet:?xt=urn:btih:70992b776f4c0f37dcaf3c90e6556bd309fb29f1\r\n"
+    "magnet:?xt=urn:btih:1314d891b36decc52739fce38913ed25749684b7\r\n"
+    "magnet:?xt=urn:btih:b73f37e438d2486ef2d0fc994c9e7331f55dcb69\r\n"
+    "magnet:?xt=urn:btih:43f2baf7b99fe014979c54a3c4ec8f5d4f5c0d2f\r\n"
+    "magnet:?xt=urn:btih:e6968f0d0057cb359b7f33f03f7db7b8f9055c55\r\n"
+    "magnet:?xt=urn:btih:76044c274fb699214be6c7027ad0cba4d8d1dfdd\r\n"
+    "magnet:?xt=urn:btih:45dc0af919f63018d9391ba07118a93af58c9df7\r\n"
+    "magnet:?xt=urn:btih:bd05eef248405ecb5ed7b61804010747a90e7921\r\n"
+    "~~~~~~~~~~\r\n";
 
 /* Functions -----------------------------------------------------------------*/
-int inv_icm_init(const short gyro_offs[3]) {
-    int rc;
+int onRecv(unsigned short data, int rc) {
+    static int i = 0;
+    BaseType_t higherPriorityTaskWoken;
 
-    // 1. reset and wakeup
-    rc |= inv_icm_soft_reset();
-    vTaskDelay(pdMS_TO_TICKS(100));
-    rc |= inv_icm_wakeup();
-    vTaskDelay(pdMS_TO_TICKS(100));
-    // 2. enable ODR align
-    rc |= inv_icm_enable_odr_align();
-    // 3. set gyro sample rate & full scale
-    rc |= inv_icm_set_gyro_smplrt(562);
-    rc |= inv_icm_set_gfs(MPU_FS_2000DPS);
-    // 4. set accelerator sample rate & full scale
-    rc |= inv_icm_set_accel_smplrt(562);
-    rc |= inv_icm_set_afs(MPU_FS_16G);
-    // 5. set gyro offset
-    rc |= inv_icm_set_gyro_offs(gyro_offs);
-    // 6. enable interrupt
-    vTaskDelay(pdMS_TO_TICKS(100));
-    rc |= inv_icm_enable_int();
+    if (rc > 0) {
+        if (data == 'a') {
+            i = 1;
+        } else {
+            if (i == 1 && data == 'Z') {
+                xSemaphoreGiveFromISR(gSem_printBlob, &higherPriorityTaskWoken);
+                portYIELD_FROM_ISR(higherPriorityTaskWoken);
+            }
+            i = 0;
+        }
+    } else {
+        i = 0;
+    }
 
-    return rc;
+    return 0;
+}
+
+int onTxBlobDone(int rc) {
+    if (rc > 0) {
+        BSP_SYSLED_Set_Normal();
+    } else {
+        BSP_SYSLED_Set_Fault();
+    }
+    return 0;
+}
+
+int onTxHelloDone(int rc) {
+    if (rc > 0) {
+        if ((g_count % 10) == 0) {
+            BSP_SYSLED_Set_UnderInit();
+        }
+    } else {
+        BSP_SYSLED_Set_Fault();
+    }
+    return 0;
 }
 
 /* Threads */
-void tBlinker(TimerHandle_t xTimer) {
-    static int count = 0;
-    unsigned int values[4];
+void thr_printBlob(void *pvParameters) {
+    struct al_uart_aiocb aiocb = {
+        1,
+        (void*) g_strBlob,
+        sizeof(g_strBlob),
+        0,
+        onTxBlobDone,
+    };
 
-    if (count < 15) {
-        count++;
-        if (count == 10) {
-            BSP_SYSLED_Set_Normal();
-        } else if (count > 10) {
-            for (int i = 0; i < 4; i++) {
-                values[i] = (count - 10) * 200;
-            }
-            al_tim_dshot_set4(values); // non-block API
-        }
-    }
-}
-
-void tComm(void *pvParameters) {
-    static char msgBuf[121];
-    static int len;
-#define LOG(format, ...) \
-    do { \
-        len = snprintf(msgBuf, sizeof(msgBuf), format, ##__VA_ARGS__); \
-        al_uart_write(1, msgBuf, len); \
-    } while (0)
-
-    TickType_t xLastWakeTime;
-    short raw6[6];
-    unsigned hits;
-    unsigned count = 0;
-
-    // waiting for ICM20648 initialization
-    xSemaphoreTake(xSemInitialized, portMAX_DELAY);
-    // start 1HZ loop
-    xLastWakeTime = xTaskGetTickCount();
     while (1) {
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
-        xSemaphoreTake(xMutRaw6, portMAX_DELAY);
-        memcpy(raw6, g_raw6, sizeof(raw6));
-        memset(g_raw6, 0, sizeof(g_raw6));
-        hits = g_hits;
-        xSemaphoreGive(xMutRaw6);
-        LOG("count: %u, hits %u, gyro_sum: %d, %d, %d\r\n",
-            ++count, hits, raw6[3], raw6[4], raw6[5]);
+        xSemaphoreTake(gSem_printBlob, portMAX_DELAY);
+        al_uart_aio_write(&aiocb);
     }
-
-#undef LOG
 }
 
-void tIMUCollector(void *pvParameters) {
-    static const short gyro_offset[3] = { -47, 8, 6 };
-    static short raw6[6];
-    int rc;
+void thr_main(void *pvParameters) {
+    static char msgBuf[81];
+    TickType_t lastWakeTime;
+    struct al_uart_aiocb aiocb = { 1, msgBuf, 0, AIO_NONBLOCK, onTxHelloDone };
 
-    // waiting for IMC20648 powered up
-    vTaskDelay(pdMS_TO_TICKS(100));
+    al_uart_async_read_one(1, onRecv);
 
-    rc = inv_icm_init(gyro_offset);
-    if (rc < 0) {
-        return;
+    lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        aiocb.aio_nbytes = snprintf(msgBuf, sizeof(msgBuf),
+            "[%u] hello, aio!\r\n", g_count++);
+        al_uart_aio_write(&aiocb);
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
     }
-
-    g_icm_initialized = 1;
-    xSemaphoreGive(xSemInitialized);
-
-    while (xSemaphoreTake(xSemDRDY, pdMS_TO_TICKS(3)) == pdTRUE) {
-        inv_icm_read_raw6(raw6);
-        xSemaphoreTake(xMutRaw6, portMAX_DELAY);
-        for (int i = 0; i < 3; i++) {
-            g_raw6[i + 3] += raw6[i + 3];
-        }
-        g_hits++;
-        xSemaphoreGive(xMutRaw6);
-    }
-
-    return;
 }
 
 int main(void) {
@@ -155,33 +126,24 @@ int main(void) {
     al_tim_dshot_init();
 
     /* Create semaphores */
-    xSemDRDY = xSemaphoreCreateBinary();
-    xSemInitialized = xSemaphoreCreateBinary();
-    xMutRaw6 = xSemaphoreCreateMutex();
+    gSem_printBlob = xSemaphoreCreateBinary();
+
+    /* Create events */
 
     /* Create tasks */
-    xTaskCreate(tComm,
-                "thread communication",
+    xTaskCreate(thr_main,
+                "the main thread",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                configTIMER_TASK_PRIORITY + 1,
+                tskIDLE_PRIORITY + 1,
                 NULL);
 
-    xTaskCreate(tIMUCollector,
-                "thread IMU collector",
+    xTaskCreate(thr_printBlob,
+                "thread to print strBlob",
                 configMINIMAL_STACK_SIZE,
                 NULL,
-                configTIMER_TASK_PRIORITY + 2,
+                tskIDLE_PRIORITY + 2,
                 NULL);
-
-    /* Create software timers */
-    xTimerBlinker = xTimerCreate("timer tBlinker",
-                                 pdMS_TO_TICKS(1000),
-                                 pdTRUE,
-                                 NULL,
-                                 tBlinker);
-    /* Activate timers */
-    xTimerStart(xTimerBlinker, 0);
 
     /* Start the scheduler. */
     vTaskStartScheduler();
@@ -194,20 +156,6 @@ int main(void) {
        details. */
     while(1);
 }
-
-void al_exti_0_callback(void) {
-    if (g_icm_initialized) {
-        xSemaphoreGiveFromISR(xSemDRDY, NULL);
-    }
-}
-
-#if 0
-void al_uart_0_recv_callback(unsigned char c, int ec, int *brk) {
-}
-
-void al_uart_1_recv_callback(unsigned char c, int ec, int *brk) {
-}
-#endif
 
 #if defined(HORIZON_GS_STD_L4)
 void al_exti_2_callback(void) {

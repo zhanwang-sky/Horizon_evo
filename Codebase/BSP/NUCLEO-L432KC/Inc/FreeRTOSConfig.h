@@ -10,7 +10,7 @@ extern uint32_t SystemCoreClock;
 #endif
 
 #define configUSE_PREEMPTION                    1
-#define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
+#define configUSE_PORT_OPTIMISED_TASK_SELECTION 1
 #define configUSE_TICKLESS_IDLE                 0
 #define configCPU_CLOCK_HZ                      SystemCoreClock
 #define configTICK_RATE_HZ                      1000
@@ -54,7 +54,7 @@ extern uint32_t SystemCoreClock;
 #define configMAX_CO_ROUTINE_PRIORITIES         1
 
 /* Software timer related definitions. */
-#define configUSE_TIMERS                        1
+#define configUSE_TIMERS                        0
 #define configTIMER_TASK_PRIORITY               (tskIDLE_PRIORITY + 1)
 #define configTIMER_QUEUE_LENGTH                1
 #define configTIMER_TASK_STACK_DEPTH            configMINIMAL_STACK_SIZE

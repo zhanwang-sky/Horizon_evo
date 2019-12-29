@@ -387,11 +387,6 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\Codebase\Application\main.c</FilePath>
             </File>
-            <File>
-              <FileName>icm20648.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\Application\Invensense\icm20648.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -423,14 +418,9 @@
           <GroupName>FreeRTOS</GroupName>
           <Files>
             <File>
-              <FileName>tasks.c</FileName>
+              <FileName>heap_1.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\FreeRTOS\Source\tasks.c</FilePath>
-            </File>
-            <File>
-              <FileName>queue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\FreeRTOS\Source\queue.c</FilePath>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\portable\MemMang\heap_1.c</FilePath>
             </File>
             <File>
               <FileName>list.c</FileName>
@@ -443,14 +433,14 @@
               <FilePath>..\..\..\Codebase\FreeRTOS\Source\portable\RVDS\ARM_CM4F\port.c</FilePath>
             </File>
             <File>
-              <FileName>heap_1.c</FileName>
+              <FileName>queue.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\FreeRTOS\Source\portable\MemMang\heap_1.c</FilePath>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\queue.c</FilePath>
             </File>
             <File>
-              <FileName>timers.c</FileName>
+              <FileName>tasks.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\Codebase\FreeRTOS\Source\timers.c</FilePath>
+              <FilePath>..\..\..\Codebase\FreeRTOS\Source\tasks.c</FilePath>
             </File>
           </Files>
         </Group>
