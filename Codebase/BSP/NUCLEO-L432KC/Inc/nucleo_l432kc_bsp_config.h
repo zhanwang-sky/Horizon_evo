@@ -95,15 +95,14 @@ do { \
     } \
 } while (0)
 
-#define BSP_I2C_FD2IDXHDL(FD, INDEX, HI2C) \
+#define BSP_I2C_FD2HDL(FD, HI2C) \
 do { \
-    INDEX = 0; \
     HI2C = &hi2c3; \
 } while (0)
 
-#define BSP_I2C_HDL2IDX(HI2C, INDEX) \
+#define BSP_I2C_HDL2FD(HI2C, FD) \
 do { \
-    INDEX = 0; \
+    FD = 0; \
 } while (0)
 
 #ifdef _REVISE_N_OPTIMIZE_

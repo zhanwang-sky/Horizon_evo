@@ -5,8 +5,6 @@
   * @brief  Provide a set of APIs to interface with UART.
   ******************************************************************************
   * @attention
-  * I. aio APIs should be used in task context.
-  * II. however, handlers (callbacks) will be executed in interrupt context.
   ******************************************************************************
   */
 
@@ -68,7 +66,7 @@ int al_uart_aio_write(struct al_uart_aiocb *aiocb) {
         return -EAGAIN;
     }
 
-    __al_uart_tx_handler[fd] = aiocb->handler;
+    __al_uart_tx_handler[fd] = aiocb->aio_handler;
 
     if (HAL_UART_Transmit_DMA(huart, (uint8_t*) aiocb->aio_buf, (uint16_t) size) != HAL_OK) {
         goto ERR_HAL;

@@ -13,6 +13,7 @@
 
 /* Common definitions --------------------------------------------------------*/
 /* aio */
+#define AIO_FLAGNONE (0)
 #define AIO_NONBLOCK (1 << 0)
 /* errno */
 #define EINTR   (4)
@@ -29,6 +30,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "al_stm32l4xx_uart.h"
+#include "al_stm32l4xx_i2c.h"
 
 /* Function prototypes -------------------------------------------------------*/
 /* gpio */
@@ -37,10 +39,6 @@ int al_gpio_read_pin(int fd, int *pState);
 int al_gpio_toggle_pin(int fd);
 void al_exti_0_callback(void);
 void al_exti_1_callback(void);
-/* i2c */
-int al_i2c_init(void);
-int al_i2c_write(int fd, char dev_addr, char reg_addr, const void *buf, unsigned int nbytes);
-int al_i2c_read(int fd, char dev_addr, char reg_addr, void *buf, unsigned int nbytes);
 /* spi */
 int al_spi_init(void);
 int al_spi_write(int fd, int subfd, const void *buf, unsigned int nbytes);
