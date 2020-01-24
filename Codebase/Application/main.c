@@ -42,16 +42,14 @@ SemaphoreHandle_t gSem_bmxXferCplt;
 int g_bmeXferEc;
 unsigned int g_seq = 0;
 const char g_strBlob[] =
-    "~~~~~~~~~~\r\n"
-    "magnet:?xt=urn:btih:70992b776f4c0f37dcaf3c90e6556bd309fb29f1\r\n"
-    "magnet:?xt=urn:btih:1314d891b36decc52739fce38913ed25749684b7\r\n"
-    "magnet:?xt=urn:btih:b73f37e438d2486ef2d0fc994c9e7331f55dcb69\r\n"
-    "magnet:?xt=urn:btih:43f2baf7b99fe014979c54a3c4ec8f5d4f5c0d2f\r\n"
-    "magnet:?xt=urn:btih:e6968f0d0057cb359b7f33f03f7db7b8f9055c55\r\n"
-    "magnet:?xt=urn:btih:76044c274fb699214be6c7027ad0cba4d8d1dfdd\r\n"
-    "magnet:?xt=urn:btih:45dc0af919f63018d9391ba07118a93af58c9df7\r\n"
-    "magnet:?xt=urn:btih:bd05eef248405ecb5ed7b61804010747a90e7921\r\n"
-    "~~~~~~~~~~\r\n";
+" ___________\r\n"
+"< what's up >\r\n"
+" -----------\r\n"
+"        \\   ^__^\r\n"
+"         \\  (oo)\\_______\r\n"
+"            (__)\\       )\\/\\\r\n"
+"                ||----w |\r\n"
+"                ||     ||\r\n";
 
 /* Functions -----------------------------------------------------------------*/
 int uart1_dataRecv(unsigned short data, int rc) {
