@@ -16,6 +16,7 @@
 #include "semphr.h"
 
 #include "al_stm32l4xx.h"
+#include "al_stm32l4xx_i2c.h"
 
 #if defined(HORIZON_MINI_L4)
 #include "nucleo_l432kc_bsp_config.h"
@@ -26,14 +27,15 @@
 #endif
 
 /* Private typedef -----------------------------------------------------------*/
-typedef HAL_StatusTypeDef __al_i2c_xFunc_t(I2C_HandleTypeDef*, uint16_t, uint16_t, uint16_t, uint8_t*, uint16_t);
+typedef HAL_StatusTypeDef _al_i2c_xFunc_t(I2C_HandleTypeDef*, uint16_t, uint16_t, uint16_t, uint8_t*, uint16_t);
 
 /* Private variables ---------------------------------------------------------*/
-static SemaphoreHandle_t __al_i2c_busLock[BSP_NR_I2Cs];
-static int (*__al_i2c_handler[BSP_NR_I2Cs])(int);
+static SemaphoreHandle_t _al_i2c_busLock[BSP_NR_I2Cs];
+static int (*_al_i2c_notifier[BSP_NR_I2Cs])(union sigval, int);
+static union sigval _al_i2c_sigval[BSP_NR_I2Cs];
 
 /* Private functions ---------------------------------------------------------*/
-static int __al_i2c_xfer(struct al_i2c_aiocb *aiocb, __al_i2c_xFunc_t *xFunc) {
+static int _al_i2c_xfer(struct al_i2c_aiocb *aiocb, _al_i2c_xFunc_t *xFunc) {
     int fd = aiocb->aio_fildes;
     size_t size = aiocb->aio_nbytes;
     I2C_HandleTypeDef *hi2c;
@@ -54,12 +56,13 @@ static int __al_i2c_xfer(struct al_i2c_aiocb *aiocb, __al_i2c_xFunc_t *xFunc) {
 
     BSP_I2C_FD2HDL(fd, hi2c);
 
-    if (xSemaphoreTake(__al_i2c_busLock[fd],
+    if (xSemaphoreTake(_al_i2c_busLock[fd],
         (aiocb->aio_flag & AIO_NONBLOCK) ? 0 : portMAX_DELAY) != pdTRUE) {
         return -EAGAIN;
     }
 
-    __al_i2c_handler[fd] = aiocb->aio_handler;
+    _al_i2c_notifier[fd] = aiocb->aio_sigevent.sigev_notify_function;
+    memcpy(_al_i2c_sigval + fd, &aiocb->aio_sigevent.sigev_value, sizeof(union sigval));
 
     hal_rc = xFunc(hi2c,
         aiocb->aio_devadd, aiocb->aio_memadd,
@@ -73,21 +76,21 @@ static int __al_i2c_xfer(struct al_i2c_aiocb *aiocb, __al_i2c_xFunc_t *xFunc) {
     return 0;
 
 ERR_HAL:
-    xSemaphoreGive(__al_i2c_busLock[fd]);
+    xSemaphoreGive(_al_i2c_busLock[fd]);
 
     return (hal_rc == HAL_BUSY) ? -EBUSY : -EIO;
 
 }
 
-static void __al_i2c_xfer_handler(I2C_HandleTypeDef *hi2c, int ec) {
+static void _al_i2c_xfer_handler(I2C_HandleTypeDef *hi2c, int ec) {
     int fd;
     BaseType_t xHigherPriorityTaskWoken;
 
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         BSP_I2C_HDL2FD(hi2c, fd);
         xHigherPriorityTaskWoken = pdFALSE;
-        xSemaphoreGiveFromISR(__al_i2c_busLock[fd], &xHigherPriorityTaskWoken);
-        if (__al_i2c_handler[fd] && __al_i2c_handler[fd](ec)) {
+        xSemaphoreGiveFromISR(_al_i2c_busLock[fd], &xHigherPriorityTaskWoken);
+        if (_al_i2c_notifier[fd] && _al_i2c_notifier[fd](_al_i2c_sigval[fd], ec)) {
             xHigherPriorityTaskWoken = pdTRUE;
         }
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
@@ -97,9 +100,9 @@ static void __al_i2c_xfer_handler(I2C_HandleTypeDef *hi2c, int ec) {
 /* Functions -----------------------------------------------------------------*/
 int al_i2c_init(void) {
     for (int i = 0; i < BSP_NR_I2Cs; i++) {
-        if ((NULL == (__al_i2c_busLock[i] = xSemaphoreCreateBinary()))
+        if ((NULL == (_al_i2c_busLock[i] = xSemaphoreCreateBinary()))
             // XXX release a semaphore before starting scheduler?
-            || (xSemaphoreGive(__al_i2c_busLock[i]) != pdTRUE)) {
+            || (xSemaphoreGive(_al_i2c_busLock[i]) != pdTRUE)) {
             return -1;
         }
     }
@@ -108,11 +111,11 @@ int al_i2c_init(void) {
 }
 
 int al_i2c_aio_write(struct al_i2c_aiocb *aiocb) {
-    return __al_i2c_xfer(aiocb, HAL_I2C_Mem_Write_DMA);
+    return _al_i2c_xfer(aiocb, HAL_I2C_Mem_Write_DMA);
 }
 
 int al_i2c_aio_read(struct al_i2c_aiocb *aiocb) {
-    return __al_i2c_xfer(aiocb, HAL_I2C_Mem_Read_DMA);
+    return _al_i2c_xfer(aiocb, HAL_I2C_Mem_Read_DMA);
 }
 
 /* ISR callbacks -------------------------------------------------------------*/
@@ -123,7 +126,7 @@ int al_i2c_aio_read(struct al_i2c_aiocb *aiocb) {
   * @retval None
   */
 void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c) {
-    __al_i2c_xfer_handler(hi2c, 0);
+    _al_i2c_xfer_handler(hi2c, 0);
 }
 
 /**
@@ -133,7 +136,7 @@ void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c) {
   * @retval None
   */
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
-    __al_i2c_xfer_handler(hi2c, 0);
+    _al_i2c_xfer_handler(hi2c, 0);
 }
 
 /**
@@ -143,7 +146,7 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
   * @retval None
   */
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
-    __al_i2c_xfer_handler(hi2c, -EIO);
+    _al_i2c_xfer_handler(hi2c, -EIO);
 }
 
 /**
@@ -153,7 +156,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
   * @retval None
   */
 void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c) {
-    __al_i2c_xfer_handler(hi2c, -EIO);
+    _al_i2c_xfer_handler(hi2c, -EIO);
 }
 
 /******************************** END OF FILE *********************************/

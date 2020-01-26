@@ -10,11 +10,12 @@
   ******************************************************************************
   */
 
-#ifndef __AL_STM32L4XX_UART_H
-#define __AL_STM32L4XX_UART_H
+#ifndef _AL_STM32L4XX_UART_H
+#define _AL_STM32L4XX_UART_H
 
 /* Includes ------------------------------------------------------------------*/
 #include <stddef.h>
+#include "al_stm32l4xx.h"
 
 /* Typedef -------------------------------------------------------------------*/
 struct al_uart_aiocb {
@@ -22,14 +23,14 @@ struct al_uart_aiocb {
     volatile void  *aio_buf;
     size_t          aio_nbytes;
     int             aio_flag;
-    int (*aio_handler)(int rc);
+    struct sigevent aio_sigevent;
 };
 
 /* Prototypes ----------------------------------------------------------------*/
 int al_uart_init(void);
 int al_uart_aio_write(struct al_uart_aiocb *aiocb);
-int al_uart_async_read_one(int fd, int (*handler)(unsigned short, int));
+int al_uart_async_read_one(int fd, int (*notifier)(unsigned short, int));
 
-#endif /* __AL_STM32L4XX_UART_H */
+#endif /* _AL_STM32L4XX_UART_H */
 
 /******************************** END OF FILE *********************************/

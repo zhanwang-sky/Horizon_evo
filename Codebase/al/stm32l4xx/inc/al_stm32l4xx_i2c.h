@@ -10,11 +10,12 @@
   ******************************************************************************
   */
 
-#ifndef __AL_STM32L4XX_I2C_H
-#define __AL_STM32L4XX_I2C_H
+#ifndef _AL_STM32L4XX_I2C_H
+#define _AL_STM32L4XX_I2C_H
 
 /* Includes ------------------------------------------------------------------*/
 #include <stddef.h>
+#include "al_stm32l4xx.h"
 
 /* Typedef -------------------------------------------------------------------*/
 struct al_i2c_aiocb {
@@ -24,7 +25,7 @@ struct al_i2c_aiocb {
     volatile void  *aio_buf;
     size_t          aio_nbytes;
     int             aio_flag;
-    int (*aio_handler)(int rc);
+    struct sigevent aio_sigevent;
 };
 
 /* Function prototypes -------------------------------------------------------*/
@@ -32,6 +33,6 @@ int al_i2c_init(void);
 int al_i2c_aio_write(struct al_i2c_aiocb *aiocb);
 int al_i2c_aio_read(struct al_i2c_aiocb *aiocb);
 
-#endif /* __AL_STM32L4XX_I2C_H */
+#endif /* _AL_STM32L4XX_I2C_H */
 
 /******************************** END OF FILE *********************************/

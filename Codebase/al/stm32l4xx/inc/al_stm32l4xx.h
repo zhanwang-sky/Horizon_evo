@@ -29,8 +29,17 @@
 #define EDEVERR (83)
 
 /* Includes ------------------------------------------------------------------*/
-#include "al_stm32l4xx_uart.h"
-#include "al_stm32l4xx_i2c.h"
+
+/* Typedef -------------------------------------------------------------------*/
+union sigval {
+    int   sival_int;
+    void *sival_ptr;
+};
+
+struct sigevent {
+    union sigval sigev_value;
+    int (*sigev_notify_function)(union sigval, int);
+};
 
 /* Function prototypes -------------------------------------------------------*/
 /* gpio */

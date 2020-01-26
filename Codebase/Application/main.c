@@ -17,6 +17,8 @@
 
 #if defined(HORIZON_MINI_L4)
 #include "al_stm32l4xx.h"
+#include "al_stm32l4xx_i2c.h"
+#include "al_stm32l4xx_uart.h"
 #include "nucleo_l432kc_bsp.h"
 #elif defined(HORIZON_GS_STD_L4)
 #include "al_stm32l4xx.h"
@@ -39,7 +41,7 @@
 /* Global variables ----------------------------------------------------------*/
 SemaphoreHandle_t gSem_patternRecv;
 SemaphoreHandle_t gSem_bmxXferCplt;
-int g_bmeXferEc;
+int g_bmxXferEc;
 unsigned int g_seq = 0;
 const char g_strBlob[] =
 " ___________\r\n"
@@ -70,36 +72,38 @@ int uart1_dataRecv(unsigned short data, int rc) {
     return 0;
 }
 
-int printBlobDone(int rc) {
-    if (rc > 0) {
-        BSP_SYSLED_Set_Normal();
-    } else {
+int uart1_msgSent(union sigval sigev_value, int rc) {
+    if (rc < 0) {
         BSP_SYSLED_Set_Fault();
-    }
-    return 0;
-}
-
-int printMsgDone(int rc) {
-    if (rc > 0) {
-        if ((g_seq % 10) == 0) {
+    } else {
+        if (sigev_value.sival_int) {
+            BSP_SYSLED_Set_Normal();
+        } else if ((g_seq % 10) == 0) {
             BSP_SYSLED_Set_UnderInit();
         }
-    } else {
-        BSP_SYSLED_Set_Fault();
     }
+
     return 0;
 }
 
-int bmxXferCplt(int ec) {
+int i2c0_rdwrCplt(union sigval sigev_value, int ec) {
     BaseType_t higherPriorityTaskWoken = pdFALSE;
-    g_bmeXferEc = ec;
+    g_bmxXferEc = ec;
     xSemaphoreGiveFromISR(gSem_bmxXferCplt, &higherPriorityTaskWoken);
-    return (higherPriorityTaskWoken == pdTRUE) ? 1 : 0;
+    return (int) higherPriorityTaskWoken;
 }
 
 /* Threads */
 void thr_printBlob(void *pvParameters) {
-    struct al_uart_aiocb aiocb = { 1, (void*) g_strBlob, sizeof(g_strBlob), AIO_FLAGNONE, printBlobDone };
+    struct al_uart_aiocb aiocb = {
+        1,
+        (void*) g_strBlob,
+        sizeof(g_strBlob),
+        AIO_FLAGNONE,
+        { }
+    };
+    aiocb.aio_sigevent.sigev_value.sival_int = 1;
+    aiocb.aio_sigevent.sigev_notify_function = uart1_msgSent;
 
     while (1) {
         xSemaphoreTake(gSem_patternRecv, portMAX_DELAY);
@@ -116,8 +120,27 @@ void thr_main(void *pvParameters) {
     int msgLen;
     int rc;
     TickType_t lastWakeTime;
-    struct al_uart_aiocb uart1_aiocb = { 1, msgBuf, 0, AIO_NONBLOCK, NULL };
-    struct al_i2c_aiocb i2c0_aiocb = { 0, BME280_DEV_ADDR, BME280_REG_ID, bmxBuf, 1, AIO_NONBLOCK, NULL };
+    struct al_uart_aiocb uart1_aiocb = {
+        1,
+        msgBuf,
+        0,
+        AIO_NONBLOCK,
+        { }
+    };
+    struct al_i2c_aiocb i2c0_aiocb = {
+        0,
+        BME280_DEV_ADDR,
+        BME280_REG_ID,
+        bmxBuf,
+        1,
+        AIO_NONBLOCK,
+        { }
+    };
+
+    uart1_aiocb.aio_sigevent.sigev_value.sival_int = 0;
+    uart1_aiocb.aio_sigevent.sigev_notify_function = NULL;
+    i2c0_aiocb.aio_sigevent.sigev_value.sival_int = 0;
+    i2c0_aiocb.aio_sigevent.sigev_notify_function = NULL;
 
     /* prestage */
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -135,9 +158,9 @@ void thr_main(void *pvParameters) {
 
     /* prepare */
     // setup uart aio_handler
-    uart1_aiocb.aio_handler = printMsgDone;
+    uart1_aiocb.aio_sigevent.sigev_notify_function = uart1_msgSent;
     // setup i2c aio_handler
-    i2c0_aiocb.aio_handler = bmxXferCplt;
+    i2c0_aiocb.aio_sigevent.sigev_notify_function = i2c0_rdwrCplt;
     // start UART reading
     al_uart_async_read_one(1, uart1_dataRecv);
 
@@ -159,9 +182,9 @@ void thr_main(void *pvParameters) {
                 msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
                     "timeout\r\n");
             } else {
-                if (g_bmeXferEc) {
+                if (g_bmxXferEc) {
                     msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
-                        "aio post error(%d)\r\n", g_bmeXferEc);
+                        "aio post stage error(%d)\r\n", g_bmxXferEc);
                 } else {
                     msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
                         "1 byte from DEV 0x%02X, REG 0x%02X: 0x%02X\r\n",
