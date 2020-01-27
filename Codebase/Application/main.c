@@ -11,9 +11,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include <stdio.h>
 
+#include "bma2x2.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "event_groups.h"
 
 #if defined(HORIZON_MINI_L4)
 #include "al_stm32l4xx.h"
@@ -28,21 +31,38 @@
 #endif
 
 /* Definitions ---------------------------------------------------------------*/
-#define BMX055_ACC_DEV_ADDR (0x18 << 1)
-#define BMX055_ACC_REG_ID   (0)
+#define BMX055_I2C_FD       (0)
+#define BMP280_I2C_FD       (0)
+
+#define BMX055_ACC_DEV_ADDR (BMA2x2_I2C_ADDR1 << 1)
 #define BMX055_GYR_DEV_ADDR (0X68 << 1)
-#define BMX055_GYR_REG_ID   (0)
 #define BMX055_MAG_DEV_ADDR (0x10 << 1)
-#define BMX055_MAG_REG_ID   (0x40)
-#define BMX055_MAG_REG_PWR  (0x4B)
-#define BME280_DEV_ADDR     (0x76 << 1)
-#define BME280_REG_ID       (0xD0)
+#define BMP280_DEV_ADDR     (0x76 << 1)
+
+#define BIT_BMA_XFER_CPLT   (1 << 0)
+#define BIT_BMA_ARMED       (1 << 1)
+#define BIT_BMA_ERROR       (1 << 2)
+
+/* Typedef -------------------------------------------------------------------*/
+struct bmx_busStatus {
+    const EventBits_t event;
+    volatile int ec;
+};
 
 /* Global variables ----------------------------------------------------------*/
+EventGroupHandle_t gEvt_globalEvents;
+SemaphoreHandle_t gSem_bmaNewData;
 SemaphoreHandle_t gSem_patternRecv;
-SemaphoreHandle_t gSem_bmxXferCplt;
-int g_bmxXferEc;
-unsigned int g_seq = 0;
+
+/* bma2x2 */
+struct bma2x2_t g_bma2x2;
+struct bmx_busStatus g_bmaBusStatus = { BIT_BMA_XFER_CPLT };
+volatile uint8_t g_bmaRawData[BMA2x2_ACCEL_XYZ_DATA_SIZE];
+volatile int g_bmaArmed;
+volatile int g_bmaIntrCnt;
+
+/* test */
+volatile int g_seq;
 const char g_strBlob[] =
 " ___________\r\n"
 "< what's up >\r\n"
@@ -53,7 +73,67 @@ const char g_strBlob[] =
 "                ||----w |\r\n"
 "                ||     ||\r\n";
 
+/* Function prototypes -------------------------------------------------------*/
+s8 bma_i2c_write(u8, u8, u8*, u8);
+s8 bma_i2c_read(u8, u8, u8*, u8);
+void bmx_delay_msec(u32);
+int bmx_busXferCplt(union sigval, int);
+
 /* Functions -----------------------------------------------------------------*/
+/* BMX055 i2c API */
+s8 bmx_i2c_xfer(struct al_i2c_aiocb *aiocb, int (*f)(struct al_i2c_aiocb*)) {
+    if ((*f)(aiocb) < 0) {
+        return ERROR;
+    }
+    xEventGroupWaitBits(gEvt_globalEvents,
+                        ((struct bmx_busStatus*)aiocb->aio_sigevent.sigev_value.sival_ptr)->event,
+                        pdTRUE,
+                        pdTRUE,
+                        portMAX_DELAY);
+    return (s8) ((struct bmx_busStatus*)aiocb->aio_sigevent.sigev_value.sival_ptr)->ec;
+}
+
+inline s8 bma_i2c_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt) {
+    struct al_i2c_aiocb aiocb = {
+        BMX055_I2C_FD,
+        dev_addr,
+        reg_addr,
+        reg_data,
+        cnt,
+        AIO_FLAGNONE,
+        { }
+    };
+    aiocb.aio_sigevent.sigev_value.sival_ptr = &g_bmaBusStatus;
+    aiocb.aio_sigevent.sigev_notify_function = bmx_busXferCplt;
+    return bmx_i2c_xfer(&aiocb, al_i2c_aio_write);
+}
+
+inline s8 bma_i2c_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt) {
+    struct al_i2c_aiocb aiocb = {
+        BMX055_I2C_FD,
+        dev_addr,
+        reg_addr,
+        reg_data,
+        cnt,
+        AIO_FLAGNONE,
+        { }
+    };
+    aiocb.aio_sigevent.sigev_value.sival_ptr = &g_bmaBusStatus;
+    aiocb.aio_sigevent.sigev_notify_function = bmx_busXferCplt;
+    return bmx_i2c_xfer(&aiocb, al_i2c_aio_read);
+}
+
+inline void bmx_delay_msec(u32 msec) { vTaskDelay(pdMS_TO_TICKS(msec)); }
+
+void bma_rawDataNormalize(uint8_t *rawData, int16_t *normalData) {
+    for (int i = 0; i < 3; i++) {
+        normalData[i] = (int16_t) ((rawData[2 *i] & BMA2x2_12_BIT_SHIFT) | (rawData[2 * i + 1] << BMA2x2_SHIFT_EIGHT_BITS));
+        normalData[i] >>= BMA2x2_SHIFT_FOUR_BITS;
+    }
+}
+
+/* ISR */
+/* uart (fd = 1) */
 int uart1_dataRecv(unsigned short data, int rc) {
     static unsigned short lastData = 0;
     BaseType_t higherPriorityTaskWoken;
@@ -73,7 +153,7 @@ int uart1_dataRecv(unsigned short data, int rc) {
 }
 
 int uart1_msgSent(union sigval sigev_value, int rc) {
-    if (rc < 0) {
+    if (rc <= 0) {
         BSP_SYSLED_Set_Fault();
     } else {
         if (sigev_value.sival_int) {
@@ -86,14 +166,96 @@ int uart1_msgSent(union sigval sigev_value, int rc) {
     return 0;
 }
 
-int i2c0_rdwrCplt(union sigval sigev_value, int ec) {
+/* i2c (fd = 0) */
+int bmx_busXferCplt(union sigval sigev_value, int ec) {
     BaseType_t higherPriorityTaskWoken = pdFALSE;
-    g_bmxXferEc = ec;
-    xSemaphoreGiveFromISR(gSem_bmxXferCplt, &higherPriorityTaskWoken);
+    xEventGroupSetBitsFromISR(gEvt_globalEvents,
+                              ((struct bmx_busStatus*) sigev_value.sival_ptr)->event,
+                              &higherPriorityTaskWoken);
+    ((struct bmx_busStatus*) sigev_value.sival_ptr)->ec = ec;
     return (int) higherPriorityTaskWoken;
 }
 
+/* external interrupts (fd = 0) */
+void al_exti_0_callback(void) {
+    BaseType_t xHigherPriorityTaskWoken;
+
+    if (g_bmaArmed) {
+        ++g_bmaIntrCnt;
+        xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(gSem_bmaNewData, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+}
+
 /* Threads */
+void thr_accelCollector(void *pvParameters) {
+    s8 bma_rc = 0;
+
+    /*================*/
+    /* configure bma2x2 */
+    g_bma2x2.dev_addr = BMX055_ACC_DEV_ADDR;
+    g_bma2x2.bus_write = bma_i2c_write;
+    g_bma2x2.bus_read = bma_i2c_read;
+    g_bma2x2.delay_msec = bmx_delay_msec;
+
+    /* wait to power up (10ms) */
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+    /* init */
+    bma_rc |= bma2x2_init(&g_bma2x2);
+
+    /* soft reset */
+    bma_rc |= bma2x2_soft_rst();
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+    /* set power mode */
+    //bma_rc |= bma2x2_set_power_mode(BMA2x2_MODE_NORMAL);
+
+    /* set range */
+    bma_rc |= bma2x2_set_range(BMA2x2_RANGE_16G); // 0x0F
+
+    /* set bandwidth */
+    bma_rc |= bma2x2_set_bw(BMA2x2_BW_62_50HZ); // 0x10
+
+    /* configure interrupt(s) */
+    //bma_rc |= bma2x2_set_intr_output_type(BMA2x2_INTR1_OUTPUT, PUSS_PULL);
+    //bma_rc |= bma2x2_set_intr_level(BMA2x2_INTR1_LEVEL, ACTIVE_HIGH);
+    bma_rc |= bma2x2_set_new_data(BMA2x2_INTR1_NEWDATA, INTR_ENABLE); // 0x1A
+
+    /* as per datasheet, wait for at least 10ms, then (re)enable intr */
+    vTaskDelay(pdMS_TO_TICKS(25));
+
+    /* enable interrupts */
+    bma_rc |= bma2x2_set_intr_enable(BMA2x2_DATA_ENABLE, INTR_ENABLE); // 0x17
+
+    /*================*/
+    /* notify the main thread that the accelerometer has been armed */
+    /* it will start polling data once both gyro and accel are armed */
+    xEventGroupSetBits(gEvt_globalEvents,
+                       ((bma_rc == 0) ? BIT_BMA_ARMED : BIT_BMA_ERROR));
+
+    /*================*/
+    while (1) {
+        if (xSemaphoreTake(gSem_bmaNewData, pdMS_TO_TICKS(10)) == pdTRUE) {
+            struct al_i2c_aiocb aiocb = {
+                BMX055_I2C_FD,
+                BMX055_ACC_DEV_ADDR,
+                BMA2x2_ACCEL_X12_LSB_REG,
+                g_bmaRawData,
+                BMA2x2_SHIFT_SIX_BITS,
+                AIO_FLAGNONE,
+                { }
+            };
+            aiocb.aio_sigevent.sigev_value.sival_ptr = &g_bmaBusStatus;
+            aiocb.aio_sigevent.sigev_notify_function = bmx_busXferCplt;
+            al_i2c_aio_read(&aiocb);
+        } else {
+            xEventGroupSetBits(gEvt_globalEvents, BIT_BMA_ERROR);
+        }
+    }
+}
+
 void thr_printBlob(void *pvParameters) {
     struct al_uart_aiocb aiocb = {
         1,
@@ -112,13 +274,9 @@ void thr_printBlob(void *pvParameters) {
 }
 
 void thr_main(void *pvParameters) {
-    static const unsigned char bmxDevs[4] = { BMX055_ACC_DEV_ADDR, BMX055_GYR_DEV_ADDR, BMX055_MAG_DEV_ADDR, BME280_DEV_ADDR };
-    static const unsigned char bmxRegs[4] = { BMX055_ACC_REG_ID, BMX055_GYR_REG_ID, BMX055_MAG_REG_ID, BME280_REG_ID };
-    static volatile char bmxBuf[1];
     static char msgBuf[81];
+    int16_t accData[3];
     unsigned int seq;
-    int msgLen;
-    int rc;
     TickType_t lastWakeTime;
     struct al_uart_aiocb uart1_aiocb = {
         1,
@@ -127,72 +285,38 @@ void thr_main(void *pvParameters) {
         AIO_NONBLOCK,
         { }
     };
-    struct al_i2c_aiocb i2c0_aiocb = {
-        0,
-        BME280_DEV_ADDR,
-        BME280_REG_ID,
-        bmxBuf,
-        1,
-        AIO_NONBLOCK,
-        { }
-    };
-
     uart1_aiocb.aio_sigevent.sigev_value.sival_int = 0;
-    uart1_aiocb.aio_sigevent.sigev_notify_function = NULL;
-    i2c0_aiocb.aio_sigevent.sigev_value.sival_int = 0;
-    i2c0_aiocb.aio_sigevent.sigev_notify_function = NULL;
-
-    /* prestage */
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    uart1_aiocb.aio_nbytes = snprintf(msgBuf, sizeof(msgBuf),
-        "write 0x01 to BMX055 PWR register\r\n");
-    al_uart_aio_write(&uart1_aiocb);
-
-    bmxBuf[0] = 1;
-    i2c0_aiocb.aio_devadd = BMX055_MAG_DEV_ADDR;
-    i2c0_aiocb.aio_memadd = BMX055_MAG_REG_PWR;
-    al_i2c_aio_write(&i2c0_aiocb);
-
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    /* prepare */
-    // setup uart aio_handler
     uart1_aiocb.aio_sigevent.sigev_notify_function = uart1_msgSent;
-    // setup i2c aio_handler
-    i2c0_aiocb.aio_sigevent.sigev_notify_function = i2c0_rdwrCplt;
+
     // start UART reading
     al_uart_async_read_one(1, uart1_dataRecv);
+
+    // print welcome message
+    uart1_aiocb.aio_nbytes = snprintf(msgBuf, sizeof(msgBuf), "initializing...\r\n");
+    al_uart_aio_write(&uart1_aiocb);
+
+    /* get ready */
+    xEventGroupWaitBits(gEvt_globalEvents,
+                        BIT_BMA_ARMED,
+                        pdTRUE,
+                        pdTRUE,
+                        portMAX_DELAY);
+    g_bmaArmed = 1;
 
     /* start loop */
     lastWakeTime = xTaskGetTickCount();
     while (1) {
         seq = g_seq++;
-
-        i2c0_aiocb.aio_devadd = bmxDevs[seq % 4];
-        i2c0_aiocb.aio_memadd = bmxRegs[seq % 4];
-        rc = al_i2c_aio_read(&i2c0_aiocb);
-
-        msgLen = snprintf(msgBuf, sizeof(msgBuf), "[%d] ", seq);
-        if (rc) {
-            msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
-                "aio error(%d)\r\n", rc);
-        } else {
-            if (xSemaphoreTake(gSem_bmxXferCplt, pdMS_TO_TICKS(10)) != pdTRUE) {
-                msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
-                    "timeout\r\n");
-            } else {
-                if (g_bmxXferEc) {
-                    msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
-                        "aio post stage error(%d)\r\n", g_bmxXferEc);
-                } else {
-                    msgLen += snprintf(msgBuf + msgLen, sizeof(msgBuf) - msgLen,
-                        "1 byte from DEV 0x%02X, REG 0x%02X: 0x%02X\r\n",
-                        i2c0_aiocb.aio_devadd, i2c0_aiocb.aio_memadd, bmxBuf[0]);
-                }
-            }
-        }
-        uart1_aiocb.aio_nbytes = msgLen;
+        xEventGroupClearBits(gEvt_globalEvents, BIT_BMA_XFER_CPLT);
+        xEventGroupWaitBits(gEvt_globalEvents,
+                            BIT_BMA_XFER_CPLT,
+                            pdTRUE,
+                            pdTRUE,
+                            portMAX_DELAY);
+        bma_rawDataNormalize((uint8_t*) g_bmaRawData, accData);
+        uart1_aiocb.aio_nbytes = snprintf(msgBuf, sizeof(msgBuf),
+            "[%d](%d) { %hd, %hd, %hd }\r\n",
+            seq, g_bmaIntrCnt, accData[0], accData[1], accData[2]);
         al_uart_aio_write(&uart1_aiocb);
         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
     }
@@ -209,9 +333,10 @@ int main(void) {
 
     /* Create semaphores */
     gSem_patternRecv = xSemaphoreCreateBinary();
-    gSem_bmxXferCplt = xSemaphoreCreateBinary();
+    gSem_bmaNewData = xSemaphoreCreateBinary();
 
     /* Create events */
+    gEvt_globalEvents = xEventGroupCreate();
 
     /* Create tasks */
     xTaskCreate(thr_main,
@@ -223,6 +348,13 @@ int main(void) {
 
     xTaskCreate(thr_printBlob,
                 "thread to print strBlob",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                tskIDLE_PRIORITY + 2,
+                NULL);
+
+    xTaskCreate(thr_accelCollector,
+                "thread to collect Accelerometer's data",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2,

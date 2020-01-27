@@ -54,7 +54,7 @@ extern uint32_t SystemCoreClock;
 #define configMAX_CO_ROUTINE_PRIORITIES         1
 
 /* Software timer related definitions. */
-#define configUSE_TIMERS                        0
+#define configUSE_TIMERS                        1
 #define configTIMER_TASK_PRIORITY               (tskIDLE_PRIORITY + 1)
 #define configTIMER_QUEUE_LENGTH                1
 #define configTIMER_TASK_STACK_DEPTH            configMINIMAL_STACK_SIZE
@@ -115,7 +115,7 @@ void os_assert_failed(void);
 #define INCLUDE_xTaskGetIdleTaskHandle          0
 #define INCLUDE_eTaskGetState                   0
 #define INCLUDE_xEventGroupSetBitFromISR        1
-#define INCLUDE_xTimerPendFunctionCall          0
+#define INCLUDE_xTimerPendFunctionCall          1
 #define INCLUDE_xTaskAbortDelay                 0
 #define INCLUDE_xTaskGetHandle                  0
 #define INCLUDE_xTaskResumeFromISR              1

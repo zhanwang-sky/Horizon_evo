@@ -10,3 +10,6 @@
 [submodule "Codebase/Application/BOSCH/BMP280_driver"]
 	path = Codebase/Application/BOSCH/BMP280_driver
 	url = https://github.com/zhanwang-sky/BMP280_driver.git
+[submodule "Codebase/Application/BOSCH/BMA2x2_driver"]
+	path = Codebase/Application/BOSCH/BMA2x2_driver
+	url = https://github.com/zhanwang-sky/BMA2x2_driver.git

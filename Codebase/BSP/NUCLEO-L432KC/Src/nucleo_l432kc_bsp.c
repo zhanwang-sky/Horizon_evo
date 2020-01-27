@@ -147,10 +147,7 @@ static void BSP_GPIO_Init(void) {
     /* Configure GIPI pin: PC14(INT0/D1) */
     GPIO_InitStruct.Pin = GPIO_PIN_14;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-        // there is a LSF0204 vlotage translator between the MCU and ICM20948
-        // it needs a pullup resistor to achieve 3.3v
-        // it's just a work-around, better to use a strong pull
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
     /* Configure GIPI pin: PC15(NSS0/D2) */
     GPIO_InitStruct.Pin = GPIO_PIN_15;
