@@ -13,6 +13,7 @@
 
 #include "bma2x2.h"
 #include "bmg160.h"
+#include "bmm150.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -37,7 +38,7 @@
 
 #define BMX055_ACC_DEV_ADDR (BMA2x2_I2C_ADDR1 << 1)
 #define BMX055_GYR_DEV_ADDR (BMG160_I2C_ADDR1 << 1)
-#define BMX055_MAG_DEV_ADDR (0x10 << 1)
+#define BMX055_MAG_DEV_ADDR (BMM150_DEFAULT_I2C_ADDRESS << 1)
 #define BMP280_DEV_ADDR     (0x76 << 1)
 
 #define BIT_BMA_XFER_CPLT   (1)
@@ -46,10 +47,14 @@
 #define BIT_BMG_XFER_CPLT   (1 << 3)
 #define BIT_BMG_ARMED       (1 << 4)
 #define BIT_BMG_ERROR       (1 << 5)
+#define BIT_BMM_XFER_CPLT   (1 << 6)
+#define BIT_BMM_DRDY        (1 << 7)
+#define BIT_BMM_ERROR       (1 << 8)
 
 #define BMX_POWERUP_MS      (50)
 #define BMX_ACC_TIMEOUT_MS  (10)
 #define BMX_GYR_TIMEOUT_MS  (3)
+#define BMX_MAG_PERIOD_MS   (64)
 #define BMX_DATA_STABLE_MS  (2 * BMX_ACC_TIMEOUT_MS)
 
 /* Typedef -------------------------------------------------------------------*/
@@ -79,6 +84,10 @@ volatile int g_bmgArmed;
 volatile int g_bmgIntrCnt;
 volatile int g_bmgIntrResponse;
 
+/* bmm150 */
+struct bmm150_dev g_bmm150;
+struct bmx_busStatus g_bmmBusStatus = { BIT_BMM_XFER_CPLT };
+
 /* test */
 volatile int g_seq;
 const char g_strBlob[] =
@@ -96,6 +105,8 @@ s8 bma_i2c_write(u8, u8, u8*, u8);
 s8 bma_i2c_read(u8, u8, u8*, u8);
 s8 bmg_i2c_write(u8, u8, u8*, u8);
 s8 bmg_i2c_read(u8, u8, u8*, u8);
+int8_t bmm_i2c_read(uint8_t, uint8_t, uint8_t*, uint16_t);
+int8_t bmm_i2c_write(uint8_t, uint8_t, uint8_t*, uint16_t);
 void bmx_delay_msec(u32);
 int bmx_busXferCplt(union sigval, int);
 
@@ -103,7 +114,7 @@ int bmx_busXferCplt(union sigval, int);
 /* BMX055 i2c API */
 s8 bmx_i2c_xfer(struct al_i2c_aiocb *aiocb, int (*f)(struct al_i2c_aiocb*)) {
     if ((*f)(aiocb) < 0) {
-        return C_BMA2x2_FAILURE;
+        return 1;
     }
     xEventGroupWaitBits(gEvt_globalEvents,
                         ((struct bmx_busStatus*) aiocb->aio_sigevent.sigev_value.sival_ptr)->event,
@@ -111,7 +122,7 @@ s8 bmx_i2c_xfer(struct al_i2c_aiocb *aiocb, int (*f)(struct al_i2c_aiocb*)) {
                         pdTRUE,
                         portMAX_DELAY);
     return (((struct bmx_busStatus*) aiocb->aio_sigevent.sigev_value.sival_ptr)->ec == 0) ?
-        C_BMA2x2_SUCCESS : C_BMA2x2_FAILURE;
+        0 : 1;
 }
 
 /* BMA2x2 */
@@ -174,6 +185,36 @@ inline s8 bmg_i2c_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt) {
     aiocb.aio_sigevent.sigev_value.sival_ptr = &g_bmgBusStatus;
     aiocb.aio_sigevent.sigev_notify_function = bmx_busXferCplt;
     return bmx_i2c_xfer(&aiocb, al_i2c_aio_read);
+}
+
+inline int8_t bmm_i2c_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *read_data, uint16_t len) {
+    struct al_i2c_aiocb aiocb = {
+        BMX055_I2C_FD,
+        dev_id,
+        reg_addr,
+        read_data,
+        len,
+        AIO_FLAGNONE,
+        { }
+    };
+    aiocb.aio_sigevent.sigev_value.sival_ptr = &g_bmmBusStatus;
+    aiocb.aio_sigevent.sigev_notify_function = bmx_busXferCplt;
+    return bmx_i2c_xfer(&aiocb, al_i2c_aio_read);
+}
+
+inline int8_t bmm_i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *written_data, uint16_t len) {
+    struct al_i2c_aiocb aiocb = {
+        BMX055_I2C_FD,
+        dev_id,
+        reg_addr,
+        written_data,
+        len,
+        AIO_FLAGNONE,
+        { }
+    };
+    aiocb.aio_sigevent.sigev_value.sival_ptr = &g_bmmBusStatus;
+    aiocb.aio_sigevent.sigev_notify_function = bmx_busXferCplt;
+    return bmx_i2c_xfer(&aiocb, al_i2c_aio_write);
 }
 
 inline void bmx_delay_msec(u32 msec) { vTaskDelay(pdMS_TO_TICKS(msec)); }
@@ -349,7 +390,7 @@ void thr_gyroCollector(void *pvParameters) {
     s8 bmg_rc = 0;
 
     /*================*/
-    /* configure bma2x2 */
+    /* configure bmg160 */
     g_bmg160.dev_addr = BMX055_GYR_DEV_ADDR;
     g_bmg160.bus_write = bmg_i2c_write;
     g_bmg160.bus_read = bmg_i2c_read;
@@ -413,8 +454,53 @@ void thr_gyroCollector(void *pvParameters) {
     }
 }
 
+void thr_magCollector(void *pvParameters) {
+    int8_t bmm_rc = 0;
+
+    /*================*/
+    /* configure bmm150 */
+    g_bmm150.dev_id = BMX055_MAG_DEV_ADDR;
+    g_bmm150.intf = BMM150_I2C_INTF;
+    g_bmm150.read = bmm_i2c_read;
+    g_bmm150.write = bmm_i2c_write;
+    g_bmm150.delay_ms = bmx_delay_msec;
+
+    /* wait for device to power up */
+    vTaskDelay(pdMS_TO_TICKS(BMX_POWERUP_MS));
+
+    /* init */
+    bmm_rc = bmm150_init(&g_bmm150);
+
+    /* soft reset */
+    /* soft reset doesn't execute a full POR sequence, but all registers are
+       reset except for the "trim" registers and the power controll register. */
+    bmm_rc |= bmm150_soft_reset(&g_bmm150);
+
+    /* Setting the preset mode as high accuracy mode */
+    g_bmm150.settings.preset_mode = BMM150_PRESETMODE_HIGHACCURACY;
+    bmm_rc |= bmm150_set_presetmode(&g_bmm150);
+
+    if (bmm_rc != 0) {
+        xEventGroupSetBits(gEvt_globalEvents, BIT_BMM_ERROR);
+    }
+
+    while (1) {
+        /* Setting the power mode as forced (acquire data) */
+        g_bmm150.settings.pwr_mode = BMM150_FORCED_MODE;
+        bmm_rc = bmm150_set_op_mode(&g_bmm150);
+
+        vTaskDelay(pdMS_TO_TICKS(BMX_MAG_PERIOD_MS)); // ~ 15.625Hz
+
+        /* Mag data for X,Y,Z axes are stored inside the
+           bmm150_dev structure in float format (unit in uT) */
+        bmm_rc |= bmm150_read_mag_data(&g_bmm150);
+
+        xEventGroupSetBits(gEvt_globalEvents, (bmm_rc == 0) ? BIT_BMM_DRDY : BIT_BMM_ERROR);
+    }
+}
+
 void thr_main(void *pvParameters) {
-    static char msgBuf[81];
+    static char msgBuf[128];
     int16_t accData[3];
     int16_t gyrData[3];
     unsigned int seq;
@@ -467,11 +553,19 @@ void thr_main(void *pvParameters) {
                             portMAX_DELAY);
         bmg_rawDataNormalize((uint8_t*) g_bmgRawData, gyrData);
 
+        xEventGroupClearBits(gEvt_globalEvents, BIT_BMM_DRDY);
+        xEventGroupWaitBits(gEvt_globalEvents,
+                            BIT_BMM_DRDY,
+                            pdTRUE,
+                            pdTRUE,
+                            portMAX_DELAY);
+
         uart1_aiocb.aio_nbytes = snprintf(msgBuf, sizeof(msgBuf),
-            "[%d] (%d)(%d,%d) [{%hd,%hd,%hd},{%hd,%hd,%hd}]\r\n",
+            "[%d] (%d)(%d,%d) [{%hd,%hd,%hd},{%hd,%hd,%hd},{%f,%f,%f}]\r\n",
             seq, g_bmaIntrCnt, g_bmgIntrCnt, g_bmgIntrResponse,
             accData[0], accData[1], accData[2],
-            gyrData[0], gyrData[1], gyrData[2]);
+            gyrData[0], gyrData[1], gyrData[2],
+            g_bmm150.data.x, g_bmm150.data.y, g_bmm150.data.z);
         al_uart_aio_write(&uart1_aiocb);
     }
 }
@@ -510,6 +604,13 @@ int main(void) {
 
     xTaskCreate(thr_gyroCollector,
                 "thread to collect Gyroscope's data",
+                configMINIMAL_STACK_SIZE,
+                NULL,
+                tskIDLE_PRIORITY + 2,
+                NULL);
+
+    xTaskCreate(thr_magCollector,
+                "thread to collect Magnetometer's data",
                 configMINIMAL_STACK_SIZE,
                 NULL,
                 tskIDLE_PRIORITY + 2,

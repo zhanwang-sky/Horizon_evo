@@ -16,3 +16,6 @@
 [submodule "Codebase/Application/BOSCH/BMG160_driver"]
 	path = Codebase/Application/BOSCH/BMG160_driver
 	url = https://github.com/zhanwang-sky/BMG160_driver.git
+[submodule "Codebase/Application/BOSCH/BMM150-Sensor-API"]
+	path = Codebase/Application/BOSCH/BMM150-Sensor-API
+	url = https://github.com/zhanwang-sky/BMM150-Sensor-API.git
